@@ -17,15 +17,18 @@ class Module extends BaseModule
     public function init()
     {
         parent::init();
-        $this->configureLogging();
         Yii::$container->set(CiviCRMService::class);
+
+        $uid = Yii::$app->user->id ?? '-';
+        $rid = Yii::$app->request->headers->get('X-Request-Id') ?? substr(uniqid('', true), -6);
+        self::configureLogging("[uid:$uid][rid:$rid]");
     }
     public function getConfigUrl()
     {
         return Url::to(['/civicrm/config/']);
     }
 
-    private function configureLogging()
+    public static function configureLogging($prefix)
     {
 
         $target = new FileTarget([
@@ -36,10 +39,8 @@ class Module extends BaseModule
             'maxFileSize' => 10240,                   // 10 MB
             'maxLogFiles' => 10,                      // Rotation
             'exportInterval' => 1,                    // sofort schreiben (nützlich bei CLI)
-            'prefix' => function ($message) {
-                $uid = Yii::$app->user->id ?? '-';
-                $rid = Yii::$app->request->headers->get('X-Request-Id') ?? substr(uniqid('', true), -6);
-                return "[uid:$uid][rid:$rid]";
+            'prefix' => function ($message) use ($prefix) {
+                return "$prefix ";
             },
         ]);
         Yii::$app->log->targets[SyncLog::LOG_CATEGORY_SYNC] = $target;

@@ -23,10 +23,19 @@ class CiviCRMSettings extends Model
 
     public ?FieldMappingCollection $fieldMappings = null;
 
+    public function __construct($humhubSettings = null)
+    {
+        if ($humhubSettings !== null) {
+            $this->setHumhubSettings($humhubSettings);
+        }
+        parent::__construct();
+    }
+
     public function init()
     {
-        $this->setHumhubSettings(Yii::$app->getModule('civicrm')->settings);
-
+        if ($this->humhubSettings === null) {
+            $this->setHumhubSettings(Yii::$app->getModule('civicrm')->settings);
+        }
         parent::init();
         $this->url = $this->getHumhubSetting('url') ?? '';
         $this->siteKey = $this->getHumhubSetting('siteKey') ?? '';

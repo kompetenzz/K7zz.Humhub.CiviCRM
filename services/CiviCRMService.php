@@ -10,6 +10,7 @@ use humhub\libs\HttpClient;
 use Yii;
 use yii\helpers\Url;
 
+
 class CiviCRMService
 {
     public const SRC_HUMHUB = 'humhub';
@@ -28,9 +29,9 @@ class CiviCRMService
     private array $writingCiviActions = ['create', 'update', 'delete'];
     private HttpClient $httpClient;
     private CiviCRMSettings $settings;
-    public function __construct()
+    public function __construct($humhubSettings = null)
     {
-        $this->settings = Yii::createObject(type: CiviCRMSettings::class);
+        $this->settings = Yii::createObject(type: CiviCRMSettings::class, params: [$humhubSettings]);
 
         if ($this->settings->url && $this->settings->secret && $this->settings->siteKey) {
             $this->prepareAPI();
