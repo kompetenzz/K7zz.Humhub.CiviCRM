@@ -1,0 +1,69 @@
+<?php
+
+namespace k7zz\humhub\civicrm\models;
+use k7zz\humhub\civicrm\lib\FieldMappingCollection;
+use Yii;
+use yii\base\Model;
+
+class CiviCRMSettings extends Model
+{
+    protected $humhubSettings;
+
+    public string $url = '';
+    public string $secret = '';
+    public string $siteKey = '';
+    public string $contactIdField = 'civicrm_contact_id';
+    public string $activityIdField = 'civicrm_activity_id';
+    public int $activityTypeId = 0;
+    public string $checksumField = 'civicrm_checksum';
+    public bool $enableBaseSync = true;
+    public bool $autoFullSync = false;
+    public string $fieldMapping = '{}';
+
+    public ?FieldMappingCollection $fieldMappings = null;
+
+    public function init()
+    {
+        $this->setHumhubSettings(Yii::$app->getModule('civicrm')->settings);
+
+        parent::init();
+        $this->url = $this->getHumhubSetting('url') ?? '';
+        $this->siteKey = $this->getHumhubSetting('siteKey') ?? '';
+        $this->secret = $this->getHumhubSetting('secret') ?? '';
+        $this->contactIdField = $this->getHumhubSetting('contactIdField') ?? 'civicrm_id';
+        $this->checksumField = $this->getHumhubSetting('checksumField') ?? 'civicrm_checksum';
+        $this->enableBaseSync = $this->getHumhubSetting('enableBaseSync') ?? true;
+        $this->autoFullSync = $this->getHumhubSetting('autoFullSync') ?? false;
+        $this->activityIdField = $this->getHumhubSetting('activityIdField') ?? 'civicrm_network_id';
+        $this->activityTypeId = $this->getHumhubSetting('activityTypeId') ?? 0;
+        $this->fieldMapping = $this->getHumhubSetting('fieldMapping') ?? '{}';
+        $this->fieldMappings = new FieldMappingCollection($this->fieldMapping);
+    }
+
+    protected function setHumhubSetting($property, $value)
+    {
+        $this->humhubSettings->set($this->getHumhubSettingsName($property), $value);
+    }
+
+    protected function getHumhubSetting($property)
+    {
+        return $this->humhubSettings->get($this->getHumhubSettingsName($property));
+    }
+
+    protected function getHumhubSettingsName($property)
+    {
+        return "civicrm" . ucfirst($property);
+    }
+
+    public function getHumhubSettings()
+    {
+        return $this->humhubSettings;
+    }
+
+    public function setHumhubSettings($settings)
+    {
+        $this->humhubSettings = $settings;
+    }
+
+
+}

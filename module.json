@@ -1,0 +1,10 @@
+{
+    "id": "civicrm",
+    "name": "CiviCRM",
+    "description": "Sync profiles from HumHub to CiviCRM and vice verca.",
+    "keywords": [],
+    "version": "0.1.0",
+    "humhub": {
+        "minVersion": "1.0"
+    }
+}

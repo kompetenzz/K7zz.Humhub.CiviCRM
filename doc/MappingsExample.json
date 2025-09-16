@@ -1,0 +1,67 @@
+{
+    "profile.firstname": "contact.first_name",
+    "profile.lastname": "contact.last_name",
+    "profile.street": {
+        "entity": "address",
+        "field": "street_address",
+        "params": {
+            "location_type_id": 2
+        }
+    },
+    "profile.zip": {
+        "entity": "address",
+        "field": "postal_code",
+        "params": {
+            "location_type_id": 2
+        }
+    },
+    "profile.city": {
+        "entity": "address",
+        "field": "city",
+        "params": {
+            "location_type_id": 2
+        }
+    },
+    "profile.title": "contact.formal_title",
+    "profile.organisation_art": "activity.custom_641",
+    "profile.organisation_art_sonstige": "activity.custom_642",
+    "profile.expertise": "activity.custom_645",
+    "profile.expertise_other_selection": "activity.custom_648",
+    "profile.bundesland": "activity.custom_646",
+    "profile.ueber2": "activity.custom_647",
+    "profile.url_linkedin": {
+        "entity": "website",
+        "params": {
+            "website_type_id": 16
+        },
+        "field": "url"
+    },
+    "profile.phone_work": {
+        "entity": "phone",
+        "field": "phone",
+        "params": {
+            "location_type_id": 20
+        }
+    },
+    "profile.phone_private": {
+        "entity": "phone",
+        "field": "phone",
+        "params": {
+            "location_type_id": 1
+        }
+    },
+    "profile.phone_mobile": {
+        "entity": "phone",
+        "field": "phone",
+        "params": {
+            "location_type_id": 21
+        }
+    },
+    "profile.email": {
+        "entity": "email",
+        "field": "email",
+        "params": {
+            "location_type_id": 20
+        }
+    }
+}
