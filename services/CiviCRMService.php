@@ -25,6 +25,7 @@ class CiviCRMService
     private array $allowedActivityStati = [
         'Active' => 9
     ];
+    private array $writingCiviActions = ['create', 'update', 'delete'];
     private HttpClient $httpClient;
     private CiviCRMSettings $settings;
     public function __construct()
@@ -57,6 +58,11 @@ class CiviCRMService
     private function isPrepared(): bool
     {
         return isset($this->httpClient);
+    }
+
+    private function dryRun(): bool
+    {
+        return $this->settings->dryRun;
     }
 
     /**
@@ -94,6 +100,10 @@ class CiviCRMService
             ->setData([
                 'params' => json_encode($params)
             ]);
+        if ($this->dryRun() && in_array($action, $this->writingCiviActions)) {
+            SyncLog::info("Dry run enabled - skipping {$entity}.{$action} with params: " . json_encode($params));
+            return []; // Return an empty array as a placeholder
+        }
         $response = $request
             ->send();
         if ($response->isOk) {
@@ -387,6 +397,10 @@ class CiviCRMService
                 $save = true;
             }
             if ($save) {
+                if ($this->dryRun()) {
+                    SyncLog::info("Dry run enabled - skipping save of user {$user->id}.");
+                    return true;
+                }
                 $profile->save();
                 $user->save();
             }
@@ -601,6 +615,10 @@ class CiviCRMService
             }
         }
         if ($saveHumhub) {
+            if ($this->dryRun()) {
+                SyncLog::info("Dry run enabled - skipping save of user {$user->id}.");
+                return true;
+            }
             $profile->save();
             $user->save();
         }

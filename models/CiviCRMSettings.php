@@ -18,6 +18,7 @@ class CiviCRMSettings extends Model
     public string $checksumField = 'civicrm_checksum';
     public bool $enableBaseSync = true;
     public bool $autoFullSync = false;
+    public bool $dryRun = false;
     public string $fieldMapping = '{}';
 
     public ?FieldMappingCollection $fieldMappings = null;
@@ -34,6 +35,7 @@ class CiviCRMSettings extends Model
         $this->checksumField = $this->getHumhubSetting('checksumField') ?? 'civicrm_checksum';
         $this->enableBaseSync = $this->getHumhubSetting('enableBaseSync') ?? true;
         $this->autoFullSync = $this->getHumhubSetting('autoFullSync') ?? false;
+        $this->dryRun = $this->getHumhubSetting('dryRun') ?? false;
         $this->activityIdField = $this->getHumhubSetting('activityIdField') ?? 'civicrm_network_id';
         $this->activityTypeId = $this->getHumhubSetting('activityTypeId') ?? 0;
         $this->fieldMapping = $this->getHumhubSetting('fieldMapping') ?? '{}';

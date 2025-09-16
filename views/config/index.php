@@ -33,6 +33,10 @@ use yii\bootstrap\ActiveForm;
             <?= $form->field($model, 'secret')
                 ->passwordInput(['autocomplete' => 'new-password']); ?>
 
+            <div class="text-warning">
+                <?= $form->field($model, 'dryRun')->checkbox(); ?>
+            </div>
+
             <?= $form->field($model, 'contactIdField')
                 ->textInput(options: ['placeholder' => 'civicrm_id']); ?>
 

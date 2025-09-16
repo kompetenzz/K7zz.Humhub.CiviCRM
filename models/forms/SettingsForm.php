@@ -16,7 +16,7 @@ class SettingsForm extends CiviCRMSettings
             ['checksumField', 'string', 'max' => 255],
             ['contactIdField', 'string', 'max' => 255],
             ['activityIdField', 'string', 'max' => 255],
-            [['enableBaseSync', 'autoFullSync'], 'boolean'],
+            [['enableBaseSync', 'autoFullSync', 'dryRun'], 'boolean'],
             ['activityTypeId', 'integer'],
             [['fieldMapping'], 'string'],
             [['fieldMapping'], 'validateJson'],
@@ -36,6 +36,7 @@ class SettingsForm extends CiviCRMSettings
             'activityTypeId' => Yii::t('CivicrmModule.config', 'CiviCRM ActivityTypeID'),
             'enableBaseSync' => Yii::t('CivicrmModule.config', 'Enable Base Sync'),
             'autoFullSync' => Yii::t('CivicrmModule.config', 'Auto Full Sync'),
+            'dryRun' => Yii::t('CivicrmModule.config', 'Dry Run (no data will be changed)'),
             'fieldMapping' => Yii::t('CivicrmModule.config', 'Field Mapping HumHub2CiviCRM (JSON)'),
         ], parent::attributeLabels());
     }
@@ -55,6 +56,7 @@ class SettingsForm extends CiviCRMSettings
         $this->setHumhubSetting('checksumField', $this->checksumField);
         $this->setHumhubSetting('enableBaseSync', $this->enableBaseSync);
         $this->setHumhubSetting('autoFullSync', $this->autoFullSync);
+        $this->setHumhubSetting('dryRun', $this->dryRun);
         $this->setHumhubSetting('fieldMapping', $this->fieldMapping);
 
         return true;
