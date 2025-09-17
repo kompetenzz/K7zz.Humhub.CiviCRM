@@ -363,7 +363,7 @@ class CiviCRMService
         }
 
         if ($this->settings->autoFullSync || $manual) {
-            $handled = $this->syncUsers($from, $handled));
+            $handled = $this->syncUsers($from, $handled);
         }
         return count($handled) > 0;
     }
