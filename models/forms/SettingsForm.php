@@ -18,6 +18,8 @@ class SettingsForm extends CiviCRMSettings
             ['activityIdField', 'string', 'max' => 255],
             [['enableBaseSync', 'autoFullSync', 'dryRun'], 'boolean'],
             ['activityTypeId', 'integer'],
+            [['restrictToContactIds'], 'string'],
+            [['restrictToContactIds'], 'validateStringList', 'params' => ['type' => 'numeric']],
             [['fieldMapping'], 'string'],
             [['fieldMapping'], 'validateJson'],
             [['fieldMapping'], 'default', 'value' => '{}'],
@@ -37,6 +39,7 @@ class SettingsForm extends CiviCRMSettings
             'enableBaseSync' => Yii::t('CivicrmModule.config', 'Enable Base Sync'),
             'autoFullSync' => Yii::t('CivicrmModule.config', 'Auto Full Sync'),
             'dryRun' => Yii::t('CivicrmModule.config', 'Dry Run (no data will be changed)'),
+            'restrictToContactIds' => Yii::t('CivicrmModule.config', 'Restrict running to specified contacts. Use any non numeric as delimiter'),
             'fieldMapping' => Yii::t('CivicrmModule.config', 'Field Mapping HumHub2CiviCRM (JSON)'),
         ], parent::attributeLabels());
     }
@@ -57,6 +60,7 @@ class SettingsForm extends CiviCRMSettings
         $this->setHumhubSetting('enableBaseSync', $this->enableBaseSync);
         $this->setHumhubSetting('autoFullSync', $this->autoFullSync);
         $this->setHumhubSetting('dryRun', $this->dryRun);
+        $this->setHumhubSetting('restrictToContactIds', $this->restrictToContactIds);
         $this->setHumhubSetting('fieldMapping', $this->fieldMapping);
 
         return true;
@@ -69,4 +73,23 @@ class SettingsForm extends CiviCRMSettings
             $this->addError($attribute, Yii::t('CivicrmModule.config', 'Invalid JSON.'));
         }
     }
+
+    public function validateStringList($attribute, $params)
+    {
+        switch ($params['type']) {
+            case 'numeric':
+                $values = preg_split('/\D+/', $this->$attribute);
+                foreach ($values as $value) {
+                    if (!is_numeric($value)) {
+                        $this->addError($attribute, Yii::t('CivicrmModule.config', 'Only numeric values are allowed.'));
+                        return;
+                    }
+                }
+                break;
+            default:
+                // Unknown type
+                return;
+        }
+    }
+
 }

@@ -66,6 +66,22 @@ class CiviCRMService
         return $this->settings->dryRun;
     }
 
+    private function restrictToContactIds(): bool
+    {
+        return !empty($this->settings->restrictToContactIds);
+    }
+
+    private function getEnabledContactIds(): array
+    {
+        $stringList = $this->settings->restrictToContactIds;
+        if (!$stringList) {
+            return [];
+        }
+        $values = preg_split('/\D+/', $stringList);
+        return array_filter($values, 'is_numeric');
+    }
+
+
     /**
      * Construct the URL for the CiviCRM API4 endpoint like Entity/action
      * 
@@ -411,11 +427,18 @@ class CiviCRMService
 
     private function getConnectedUsers(): array
     {
-        return User::find()
-            ->joinWith('profile')
-            ->where(['<>', $this->settings->contactIdField, 0])
+        $q = User::find()
+            ->joinWith('profile');
+        if ($this->restrictToContactIds()) {
+            SyncLog::info("Restricting all actions to contact IDs: " . json_encode($this->getEnabledContactIds()));
+            $q->andWhere(['IN', "profile.{$this->settings->contactIdField}", $this->getEnabledContactIds()]);
+        } else {
+            $q->andWhere(['<>', "profile.{$this->settings->contactIdField}", 0]);
+        }
+        return $q
             ->all();
     }
+
     public function syncBases(): bool
     {
         SyncLog::info("Syncing base data from CiviCRM to HumHub for all connected users.");

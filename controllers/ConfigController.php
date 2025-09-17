@@ -2,6 +2,7 @@
 
 namespace k7zz\humhub\civicrm\controllers;
 
+use GuzzleHttp\Psr7\Uri;
 use k7zz\humhub\civicrm\components\SyncLog;
 use k7zz\humhub\civicrm\jobs\SyncJob;
 use Yii;
@@ -20,10 +21,6 @@ class ConfigController extends Controller
         parent::init();
     }
 
-    /**
-     * @return string
-     * @throws \Exception
-     */
     public function actionIndex()
     {
         $model = new SettingsForm();
@@ -32,6 +29,10 @@ class ConfigController extends Controller
             $this->view->success(Yii::t('CivicrmModule.config', 'CiviCRM settings saved successfully.'));
         }
 
+        if (Yii::$app->request->post('sync-from-civi')) {
+            return $this->redirect(['sync?from=' . CiviCRMService::SRC_CIVICRM]);
+
+        }
         return $this->render('index', [
             'model' => $model,
         ]);
@@ -47,17 +48,6 @@ class ConfigController extends Controller
             'settings' => Yii::$app->getModule('civicrm')->settings
         ]));
         $this->view->success(Yii::t('CivicrmModule.config', 'CiviCRM sync initiated successfully. QueueId: {jobId}', ['jobId' => $jobId]));
-        $i = 0;
-        while (Yii::$app->queue->isWaiting($jobId)) {
-            sleep(1);
-            $i++;
-            SyncLog::info("Waiting for job $jobId to complete... {$i}s elapsed");
-            if ($i >= 30) {
-                SyncLog::info("Job $jobId is still running after {$i}s, breaking wait loop.");
-                break;
-            }
-        }
-        SyncLog::info("Job $jobId is done?" . (Yii::$app->queue->isDone($jobId) ? ' Yes' : ' No'));
 
         return $this->redirect(['index']);
     }

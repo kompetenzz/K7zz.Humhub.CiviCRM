@@ -32,7 +32,7 @@ class Module extends BaseModule
     {
 
         $target = new FileTarget([
-            'logFile' => Yii::getAlias('@runtime/logs/' . SyncLog::LOG_CATEGORY_SYNC . '.log'),
+            'logFile' => self::getLogFilePath(),
             'categories' => [SyncLog::LOG_CATEGORY_SYNC],
             'levels' => ['error', 'warning', 'info'], // bei Bedarf 'trace' ergänzen
             'logVars' => [],                          // $_SERVER etc. weglassen
@@ -44,5 +44,10 @@ class Module extends BaseModule
             },
         ]);
         Yii::$app->log->targets[SyncLog::LOG_CATEGORY_SYNC] = $target;
+    }
+
+    public static function getLogFilePath(): string
+    {
+        return Yii::getAlias('@runtime/logs/' . SyncLog::LOG_CATEGORY_SYNC . '.log');
     }
 }
