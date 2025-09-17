@@ -408,7 +408,7 @@ class CiviCRMService
                     SyncLog::info("Adjusted account status to {$user->status}.");
                     $save = true;
                 }
-            } else {
+            } else if ($this->settings->strictDisable) {
                 $user->status = User::STATUS_DISABLED;
                 SyncLog::info("Disabling account because no activity in CiviCRM.");
                 $save = true;

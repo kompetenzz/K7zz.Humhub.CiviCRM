@@ -1,5 +1,6 @@
 <?php
 
+use humhub\libs\Html;
 use k7zz\humhub\civicrm\Module;
 use yii\bootstrap\ActiveForm;
 
@@ -37,6 +38,7 @@ use yii\bootstrap\ActiveForm;
                         ->passwordInput(['autocomplete' => 'new-password']); ?>
 
                     <h3><?= Yii::t('CivicrmModule.config', 'References Settings') ?></h3>
+
                     <?= $form->field($model, 'contactIdField')
                         ->textInput(options: ['placeholder' => 'civicrm_id']); ?>
 
@@ -53,6 +55,9 @@ use yii\bootstrap\ActiveForm;
                     <?= $form->field($model, 'enableBaseSync')
                         ->checkbox()
                         ->hint(Yii::t('CivicrmModule.config', 'Enable synchronization of activity id and checksum.')); ?>
+                    <?= $form->field($model, 'strictDisable')
+                        ->checkbox()
+                        ->hint(Yii::t('CivicrmModule.config', 'Disable users without CiviCRM activity (Network profile).')); ?>
                     <?= $form->field($model, 'autoFullSync')
                         ->checkbox()
                         ->hint(Yii::t('CivicrmModule.config', 'Enable automatic scheduled daily synchronization of profile data.')); ?>
@@ -94,6 +99,29 @@ use yii\bootstrap\ActiveForm;
 
 <button class="btn btn-primary" data-ui-loader><?= Yii::t('base', 'Save') ?></button>
 
+<?php
+$enableId = Html::getInputId($model, 'enableBaseSync');
+$strictId = Html::getInputId($model, 'strictDisable');
+
+$js = <<<JS
+function toggleStrictDisable() {
+    var baseSync = $('#$enableId');
+    var strict   = $('#$strictId').closest('.form-group');
+
+    if (baseSync.is(':checked')) {
+        strict.show();
+    } else {
+        strict.hide();
+        // Optional: auch abhaken deaktivieren
+        $('#$strictId').prop('checked', false);
+    }
+}
+toggleStrictDisable();
+$('#$enableId').on('change', toggleStrictDisable);
+JS;
+
+$this->registerJs($js, yii\web\View::POS_READY);
+?>
 <?php ActiveForm::end() ?>
 </div>
 

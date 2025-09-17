@@ -9,14 +9,14 @@ class SettingsForm extends CiviCRMSettings
     public function rules(): array
     {
         return array_merge([
-            [['url', 'secret', 'siteKey'], 'required'],
+            [['url', 'secret', 'siteKey', 'contactIdField', 'activityIdField', 'activityTypeId', 'checksumField', 'fieldMapping'], 'required'],
             ['url', 'url', 'defaultScheme' => 'https'],
             ['siteKey', 'string', 'max' => 255],
             ['secret', 'string', 'max' => 255],
             ['checksumField', 'string', 'max' => 255],
             ['contactIdField', 'string', 'max' => 255],
             ['activityIdField', 'string', 'max' => 255],
-            [['enableBaseSync', 'autoFullSync', 'dryRun'], 'boolean'],
+            [['enableBaseSync', 'autoFullSync', 'dryRun', 'strictDisable'], 'boolean'],
             ['activityTypeId', 'integer'],
             [['restrictToContactIds'], 'string'],
             [['restrictToContactIds'], 'validateStringList', 'params' => ['type' => 'numeric']],
@@ -36,6 +36,7 @@ class SettingsForm extends CiviCRMSettings
             'activityIdField' => Yii::t('CivicrmModule.config', 'Profile field holding user\'s civicrm activity ID'),
             'checksumField' => Yii::t('CivicrmModule.config', 'Profile field holding user\'s civicrm checksum'),
             'activityTypeId' => Yii::t('CivicrmModule.config', 'CiviCRM ActivityTypeID'),
+            'strictDisable' => Yii::t('CivicrmModule.config', 'Disable users withoit CiviCRM activity.'),
             'enableBaseSync' => Yii::t('CivicrmModule.config', 'Enable Base Sync'),
             'autoFullSync' => Yii::t('CivicrmModule.config', 'Auto Full Sync'),
             'dryRun' => Yii::t('CivicrmModule.config', 'Dry Run (no data will be changed)'),
@@ -58,6 +59,7 @@ class SettingsForm extends CiviCRMSettings
         $this->setHumhubSetting('activityTypeId', $this->activityTypeId);
         $this->setHumhubSetting('checksumField', $this->checksumField);
         $this->setHumhubSetting('enableBaseSync', $this->enableBaseSync);
+        $this->setHumhubSetting('strictDisable', $this->strictDisable);
         $this->setHumhubSetting('autoFullSync', $this->autoFullSync);
         $this->setHumhubSetting('dryRun', $this->dryRun);
         $this->setHumhubSetting('restrictToContactIds', $this->restrictToContactIds);
