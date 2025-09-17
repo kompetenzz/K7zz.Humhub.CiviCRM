@@ -311,7 +311,14 @@ class CiviCRMService
         // Get latest activity of $contactid and $this->activitytypeid with status active
         $params = [
             'where' => [
-                ['source_record_id', '=', $contactId],
+                [
+                    'OR',
+                    [
+                        ['assignee_contact_id', '=', $contactId],
+                        ['source_record_id', '=', $contactId],
+                        ['target_contact_id', '=', $contactId]
+                    ]
+                ],
                 ['activity_type_id', '=', $this->settings->activityTypeId]
             ],
             'orderBy' => [
@@ -320,7 +327,7 @@ class CiviCRMService
         ];
         $activities = $this->call('activity', 'get', $params);
         if (count($activities) == 0) {
-            SyncLog::warning("No activity found for contact ID {$contactId}.", $params);
+            SyncLog::warning("No activity found for contact ID {$contactId}.");
             return null;
         }
         if (count($activities) > 1) {
@@ -376,7 +383,7 @@ class CiviCRMService
      */
     public function syncBase(User $user): bool
     {
-        SyncLog::info("Base syncing user {$user->id}");
+        SyncLog::info("Start base syncing user {$user->id} ({$user->email})");
         $profile = $user->profile;
         $contactId = $profile->{$this->settings->contactIdField} ?? null;
         if (!$contactId) {
@@ -428,6 +435,7 @@ class CiviCRMService
                 $user->save();
             }
         }
+        SyncLog::info("End base syncing user {$user->id} ({$user->email})");
         return true;
     }
 
@@ -455,14 +463,15 @@ class CiviCRMService
 
     public function syncBases(): array
     {
-        SyncLog::info("Syncing base data from CiviCRM to HumHub for all connected users.");
+        SyncLog::info("Start syncing base data from CiviCRM to HumHub for all connected users.");
         $users = $this->getConnectedUsers();
         $handled = [];
         foreach ($users as $user) {
             if (!$this->syncBase($user))
-                return $handled;
+                break;
             $handled[] = $user;
         }
+        SyncLog::info("End syncing base data from CiviCRM to HumHub for all connected users.");
         return $handled;
     }
 
@@ -607,7 +616,6 @@ class CiviCRMService
      */
     public function syncUser(User $user, string $from = self::SRC_CIVICRM): bool
     {
-        SyncLog::info("Syncing user {$user->id} from source {$from}");
         $profile = $user->profile;
         $contactId = $profile->{$this->settings->contactIdField} ?? null;
         if (!$contactId) {
@@ -615,9 +623,10 @@ class CiviCRMService
         }
         $civicrmContact = $this->singleContact($contactId);
         if (!$civicrmContact) {
-            SyncLog::error("CiviCRM contact with ID {$contactId} not found for user {$user->id} ({$user->email}).");
+            SyncLog::error("Can't sync: CiviCRM contact with ID {$contactId} not found for user {$user->id} ({$user->email}).");
             return false;
         }
+        SyncLog::info("Start syncing user {$user->id} ({$user->email}) from source {$from}");
         $activityId = $profile->{$this->settings->activityIdField} ?? null;
         $activity = $activityId
             ? $this->singleActivity($activityId)
@@ -657,11 +666,12 @@ class CiviCRMService
         if ($saveHumhub) {
             if ($this->dryRun()) {
                 SyncLog::info("Dry run enabled - skipping save of user {$user->id}.");
-                return true;
+            } else {
+                $profile->save();
+                $user->save();
             }
-            $profile->save();
-            $user->save();
         }
+        SyncLog::info("End syncing user {$user->id} from source {$from}");
         return true;
     }
 
@@ -669,14 +679,15 @@ class CiviCRMService
     {
         // Logic to sync all users with CiviCRM
         // This could involve fetching all users from the database and updating their CiviCRM records
-        SyncLog::info("Syncing all users from source {$from}");
+        SyncLog::info("Start syncing all users from source {$from}");
         $users = count($users) ? $users : $this->getConnectedUsers();
         $handled = [];
         foreach ($users as $user) {
             if (!$this->syncUser($user, $from))
-                return $handled;
+                break;
             $handled[] = $user;
         }
+        SyncLog::info("End syncing all users from source {$from}");
         return $handled;
     }
 
