@@ -19,6 +19,8 @@ class CiviCRMSettings extends Model
     public bool $enableBaseSync = true;
     public bool $autoFullSync = false;
     public bool $dryRun = false;
+    public int $limit = 0;
+    public int $offset = 0;
     public bool $strictDisable = false;
     public string $restrictToContactIds = "";
     public string $fieldMapping = '{}';
@@ -47,6 +49,8 @@ class CiviCRMSettings extends Model
         $this->enableBaseSync = $this->getHumhubSetting('enableBaseSync') ?? true;
         $this->autoFullSync = $this->getHumhubSetting('autoFullSync') ?? false;
         $this->dryRun = $this->getHumhubSetting('dryRun') ?? false;
+        $this->limit = $this->getHumhubSetting('limit') ?? 0;
+        $this->offset = $this->getHumhubSetting('offset') ?? 0;
         $this->strictDisable = $this->getHumhubSetting('strictDisable') ?? false;
         $this->restrictToContactIds = $this->getHumhubSetting('restrictToContactIds') ?? '';
         $this->activityIdField = $this->getHumhubSetting('activityIdField') ?? 'civicrm_network_id';

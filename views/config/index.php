@@ -76,6 +76,18 @@ use yii\bootstrap\ActiveForm;
                         <?= $form->field($model, 'restrictToContactIds')
                             ->textarea(['rows' => 3, 'placeholder' => '10000,12000,1234'])
                             ->hint(Yii::t('CivicrmModule.config', 'Comma-separated list of contact IDs to restrict actions to.')); ?>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <?= $form->field($model, 'limit')
+                                    ->textInput(['type' => 'number', 'min' => 0, 'placeholder' => '0'])
+                                    ->hint(Yii::t('CivicrmModule.config', 'Limit number of contacts to process per run (0 = no limit).')); ?>
+                            </div>
+                            <div class="col-md-6">
+                                <?= $form->field($model, 'offset')
+                                    ->textInput(['type' => 'number', 'min' => 0, 'placeholder' => '0'])
+                                    ->hint(Yii::t('CivicrmModule.config', 'Offset for contact processing (0 = start from beginning).')); ?>
+                            </div>
+                        </div>
                     </div>
                     <div class="row mt-3">
                         <h3><?= Yii::t('CivicrmModule.config', 'Actions') ?></h3>

@@ -17,7 +17,7 @@ class SettingsForm extends CiviCRMSettings
             ['contactIdField', 'string', 'max' => 255],
             ['activityIdField', 'string', 'max' => 255],
             [['enableBaseSync', 'autoFullSync', 'dryRun', 'strictDisable'], 'boolean'],
-            ['activityTypeId', 'integer'],
+            [['activityTypeId', 'limit', 'offset'], 'integer'],
             [['restrictToContactIds'], 'string'],
             [['restrictToContactIds'], 'validateStringList', 'params' => ['type' => 'numeric']],
             [['fieldMapping'], 'string'],
@@ -40,6 +40,8 @@ class SettingsForm extends CiviCRMSettings
             'enableBaseSync' => Yii::t('CivicrmModule.config', 'Enable Base Sync'),
             'autoFullSync' => Yii::t('CivicrmModule.config', 'Auto Full Sync'),
             'dryRun' => Yii::t('CivicrmModule.config', 'Dry Run (no data will be changed)'),
+            'limit' => Yii::t('CivicrmModule.config', 'Limit'),
+            'offset' => Yii::t('CivicrmModule.config', 'Offset'),
             'restrictToContactIds' => Yii::t('CivicrmModule.config', 'Restrict running to specified contacts. Use any non numeric as delimiter'),
             'fieldMapping' => Yii::t('CivicrmModule.config', 'Field Mapping HumHub2CiviCRM (JSON)'),
         ], parent::attributeLabels());
@@ -62,6 +64,8 @@ class SettingsForm extends CiviCRMSettings
         $this->setHumhubSetting('strictDisable', $this->strictDisable);
         $this->setHumhubSetting('autoFullSync', $this->autoFullSync);
         $this->setHumhubSetting('dryRun', $this->dryRun);
+        $this->setHumhubSetting('limit', $this->limit);
+        $this->setHumhubSetting('offset', $this->offset);
         $this->setHumhubSetting('restrictToContactIds', $this->restrictToContactIds);
         $this->setHumhubSetting('fieldMapping', $this->fieldMapping);
 

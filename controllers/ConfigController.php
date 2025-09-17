@@ -27,12 +27,13 @@ class ConfigController extends Controller
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
             $this->view->success(Yii::t('CivicrmModule.config', 'CiviCRM settings saved successfully.'));
+
+            if (Yii::$app->request->post('sync-from-civi')) {
+                return $this->redirect(['sync?from=' . CiviCRMService::SRC_CIVICRM]);
+
+            }
         }
 
-        if (Yii::$app->request->post('sync-from-civi')) {
-            return $this->redirect(['sync?from=' . CiviCRMService::SRC_CIVICRM]);
-
-        }
         return $this->render('index', [
             'model' => $model,
         ]);

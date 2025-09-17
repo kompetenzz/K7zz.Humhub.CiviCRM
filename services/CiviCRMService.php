@@ -319,14 +319,18 @@ class CiviCRMService
             ]
         ];
         $activities = $this->call('activity', 'get', $params);
-        if (!count($activities) == 1) {
+        if (count($activities) == 0) {
+            SyncLog::warning("No activity found for contact ID {$contactId}.", $params);
             return null;
         }
         if (count($activities) > 1) {
             foreach ($activities as $activity) {
+                SyncLog::warning("Multiple activities found for contact ID {$contactId}");
                 if (in_array($activity['status_id'], $this->allowedActivityStati)) {
+                    SyncLog::info("Selecting activity ID {$activity['id']} by status {$activity['status_id']}");
                     return $activity;
                 }
+                SyncLog::warning("No activity in allowed stati. Taking first one…");
             }
         }
         return $activities[0];
@@ -353,15 +357,15 @@ class CiviCRMService
 
     public function sync(string $from = self::SRC_CIVICRM, bool $manual = false): bool
     {
-        $okay = true;
+        $handled = [];
         if ($this->settings->enableBaseSync) {
-            $okay = $this->syncBases();
+            $handled = $this->syncBases();
         }
 
         if ($this->settings->autoFullSync || $manual) {
-            $okay = $okay && $this->syncUsers($from);
+            $handled = $this->syncUsers($from, $handled));
         }
-        return $okay;
+        return count($handled) > 0;
     }
 
     /**
@@ -381,6 +385,7 @@ class CiviCRMService
 
         $civicrmContact = $this->singleContact($contactId);
         if ($civicrmContact) {
+            SyncLog::info("Found CiviCRM contact for ID {$contactId}.");
             $save = false;
             // Renew checksum
             if (!$this->validateChecksum($contactId, $profile->{$this->settings->checksumField})) {
@@ -396,6 +401,7 @@ class CiviCRMService
             $activity = $this->getActivityFromContact($contactId);
             $activityId = $activity['id'] ?? null;
             if ($activityId) {
+                SyncLog::info("Found activity ID {$activityId} for contact ID {$contactId}.");
                 if ($profile->{$this->settings->activityIdField} !== $activityId) {
                     $profile->{$this->settings->activityIdField} = $activityId;
                     SyncLog::info("Updated activity to ID {$activityId}.");
@@ -410,7 +416,7 @@ class CiviCRMService
                 }
             } else if ($this->settings->strictDisable) {
                 $user->status = User::STATUS_DISABLED;
-                SyncLog::info("Disabling account because no activity in CiviCRM.");
+                SyncLog::info("Disabling account because no activity in CiviCRM and strict module settings.");
                 $save = true;
             }
             if ($save) {
@@ -434,20 +440,30 @@ class CiviCRMService
             $q->andWhere(['IN', "profile.{$this->settings->contactIdField}", $this->getEnabledContactIds()]);
         } else {
             $q->andWhere(['<>', "profile.{$this->settings->contactIdField}", 0]);
+            if ($this->settings->limit > 0) {
+                SyncLog::info("Limiting user fetch to {$this->settings->limit} users.");
+                $q->limit($this->settings->limit);
+            }
+            if ($this->settings->offset > 0) {
+                SyncLog::info("Applying offset of {$this->settings->offset} users.");
+                $q->offset($this->settings->offset);
+            }
         }
         return $q
             ->all();
     }
 
-    public function syncBases(): bool
+    public function syncBases(): array
     {
         SyncLog::info("Syncing base data from CiviCRM to HumHub for all connected users.");
         $users = $this->getConnectedUsers();
+        $handled = [];
         foreach ($users as $user) {
             if (!$this->syncBase($user))
-                return false;
+                return $handled;
+            $handled[] = $user;
         }
-        return true;
+        return $handled;
     }
 
     public function onChange(string $eventSrc, Profile $profile, array $valuesBeforeChange): void
@@ -649,17 +665,19 @@ class CiviCRMService
         return true;
     }
 
-    public function syncUsers(string $from = self::SRC_CIVICRM)
+    public function syncUsers(string $from = self::SRC_CIVICRM, array $users = []): array
     {
         // Logic to sync all users with CiviCRM
         // This could involve fetching all users from the database and updating their CiviCRM records
         SyncLog::info("Syncing all users from source {$from}");
-        $users = $this->getConnectedUsers();
+        $users = count($users) ? $users : $this->getConnectedUsers();
+        $handled = [];
         foreach ($users as $user) {
             if (!$this->syncUser($user, $from))
-                return false;
+                return $handled;
+            $handled[] = $user;
         }
-        return true;
+        return $handled;
     }
 
     private function getHumhubValue($user, $field)
