@@ -31,7 +31,7 @@ class Module extends BaseModule
     public static function configureLogging()
     {
 
-        $uid = Yii::$app->has('user') ? Yii::$app->user->id ?? 'system/guest' : 'console';
+        $uid = Yii::$app->user?->identity->username ?? 'console';
         $prefix = $uid;
 
         $target = new FileTarget([
