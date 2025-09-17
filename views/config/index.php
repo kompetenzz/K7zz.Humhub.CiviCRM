@@ -50,8 +50,12 @@ use yii\bootstrap\ActiveForm;
                         ->textInput(options: ['placeholder' => '123456']); ?>
 
                     <h3><?= Yii::t('CivicrmModule.config', 'Sync Settings') ?></h3>
-                    <?= $form->field($model, 'enableBaseSync')->checkbox(); ?>
-                    <?= $form->field($model, 'autoFullSync')->checkbox(); ?>
+                    <?= $form->field($model, 'enableBaseSync')
+                        ->checkbox()
+                        ->hint(Yii::t('CivicrmModule.config', 'Enable synchronization of activity id and checksum.')); ?>
+                    <?= $form->field($model, 'autoFullSync')
+                        ->checkbox()
+                        ->hint(Yii::t('CivicrmModule.config', 'Enable automatic scheduled daily synchronization of profile data.')); ?>
 
                     <?= $form->field($model, 'fieldMapping')
                         ->textarea(['rows' => 20, 'placeholder' => '{"profile.firstname": "contact.first_name", "profile.beratung": "activity.beratung"}'])

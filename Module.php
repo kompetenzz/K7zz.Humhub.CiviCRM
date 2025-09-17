@@ -19,17 +19,20 @@ class Module extends BaseModule
         parent::init();
         Yii::$container->set(CiviCRMService::class);
 
-        $uid = Yii::$app->user->id ?? '-';
-        $rid = Yii::$app->request->headers->get('X-Request-Id') ?? substr(uniqid('', true), -6);
-        self::configureLogging("[uid:$uid][rid:$rid]");
+
+        self::configureLogging();
     }
+
     public function getConfigUrl()
     {
         return Url::to(['/civicrm/config/']);
     }
 
-    public static function configureLogging($prefix)
+    public static function configureLogging()
     {
+
+        $uid = Yii::$app->has('user') ? Yii::$app->user->id ?? 'system/guest' : 'console';
+        $prefix = $uid;
 
         $target = new FileTarget([
             'logFile' => self::getLogFilePath(),
