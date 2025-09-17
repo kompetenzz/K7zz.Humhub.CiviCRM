@@ -28,9 +28,9 @@ class SyncJob extends LongRunningActiveJob implements ExclusiveJobInterface
      */
     public function run()
     {
-        SyncLog::info("Starting CiviCRM Sync from {$this->from} (" . ($this->manual ? 'manual' : 'scheduled') . ")");
-
         Module::configureLogging();
+
+        SyncLog::info("Starting CiviCRM Sync from {$this->from} (" . ($this->manual ? 'manual' : 'scheduled') . ")");
 
         $civiCRMService = \Yii::createObject(CiviCRMService::class, [
             $this->settings
