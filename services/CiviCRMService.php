@@ -383,7 +383,6 @@ class CiviCRMService
      */
     public function syncBase(User $user): bool
     {
-        SyncLog::info("Start base syncing user {$user->id} ({$user->email})");
         $profile = $user->profile;
         $contactId = $profile->{$this->settings->contactIdField} ?? null;
         if (!$contactId) {
@@ -391,58 +390,57 @@ class CiviCRMService
         }
 
         $civicrmContact = $this->singleContact($contactId);
-        if ($civicrmContact) {
-            SyncLog::info("Found CiviCRM contact for ID {$contactId}.");
-            $save = false;
-            // Renew checksum
-            if (!$this->validateChecksum($contactId, $profile->{$this->settings->checksumField})) {
-                $checksum = $this->genChecksum($contactId);
-                if ($checksum && $profile->{$this->settings->checksumField} !== $checksum) {
-                    $profile->{$this->settings->checksumField} = $checksum;
-                    $save = true;
-                    SyncLog::info("Updated checksum (CiviCRM Contact ID {$contactId}).");
-                }
-            }
+        if (!$civicrmContact) {
+            SyncLog::error("No CiviCRM contact found for ID {$contactId}. Skipping user {$user->id}.");
+            return false;
+        }
 
-            // Sync activity ID and account status
-            $activity = $this->getActivityFromContact($contactId);
-            $activityId = $activity['id'] ?? null;
-            if ($activityId) {
-                SyncLog::info("Found activity ID {$activityId} for contact ID {$contactId}.");
-                if ($profile->{$this->settings->activityIdField} !== $activityId) {
-                    $profile->{$this->settings->activityIdField} = $activityId;
-                    SyncLog::info("Updated activity to ID {$activityId}.");
-                    $save = true;
-                }
-                $profileEnabled = $this->isProfileEnabled($activity);
-                $userEnabled = $user->status === User::STATUS_ENABLED;
-                if ($userEnabled !== $profileEnabled) {
-                    $user->status = $this->isProfileEnabled($activity) ? User::STATUS_ENABLED : User::STATUS_DISABLED;
-                    SyncLog::info("Adjusted account status to {$user->status}.");
-                    $save = true;
-                }
-            } else if ($this->settings->strictDisable) {
-                $user->status = User::STATUS_DISABLED;
-                SyncLog::info("Disabling account because no activity in CiviCRM and strict module settings.");
+        SyncLog::info("Start base syncing user {$user->id} ({$user->email}) w/ CiviCRM contact {$contactId}.");
+        $save = false;
+
+        // Renew checksum
+        if (!$this->validateChecksum($contactId, $profile->{$this->settings->checksumField})) {
+            $checksum = $this->genChecksum($contactId);
+            if ($checksum && $profile->{$this->settings->checksumField} !== $checksum) {
+                $profile->{$this->settings->checksumField} = $checksum;
                 $save = true;
-            }
-            if ($save) {
-                if ($this->dryRun()) {
-                    SyncLog::info("Dry run enabled - skipping save of user {$user->id}.");
-                    return true;
-                }
-                $profile->save();
-                $user->save();
+                SyncLog::info("Updated checksum (CiviCRM Contact ID {$contactId}).");
             }
         }
-        SyncLog::info("End base syncing user {$user->id} ({$user->email})");
-        return true;
+
+        // Sync activity ID and account status
+        $activity = $this->getActivityFromContact($contactId);
+        $activityId = $activity['id'] ?? null;
+        if ($activityId) {
+            SyncLog::info("Found activity ID {$activityId} for contact ID {$contactId}.");
+            if ($profile->{$this->settings->activityIdField} !== $activityId) {
+                $profile->{$this->settings->activityIdField} = $activityId;
+                SyncLog::info("Updated activity to ID {$activityId}.");
+                $save = true;
+            }
+            $profileEnabled = $this->isProfileEnabled($activity);
+            $userEnabled = $user->status === User::STATUS_ENABLED;
+            if ($userEnabled !== $profileEnabled) {
+                $user->status = $this->isProfileEnabled($activity) ? User::STATUS_ENABLED : User::STATUS_DISABLED;
+                SyncLog::info("Adjusted account status to {$user->status}.");
+                $save = true;
+            }
+        } else if ($this->settings->strictDisable) {
+            $user->status = User::STATUS_DISABLED;
+            SyncLog::info("Disabling account because no activity in CiviCRM and strict module settings.");
+            $save = true;
+        }
+
+        $result = $save ? $this->saveHumhub($user) : true;
+        SyncLog::info("End base syncing user {$user->id} ({$user->email}): " . ($result ? "success" : "failed"));
+        return $result;
     }
 
     private function getConnectedUsers(): array
     {
         $q = User::find()
-            ->joinWith('profile');
+            ->joinWith('profile')
+            ->where(['=', 'profile.street', ""]);
         if ($this->restrictToContactIds()) {
             SyncLog::info("Restricting all actions to contact IDs: " . json_encode($this->getEnabledContactIds()));
             $q->andWhere(['IN', "profile.{$this->settings->contactIdField}", $this->getEnabledContactIds()]);
@@ -663,16 +661,22 @@ class CiviCRMService
                     break;
             }
         }
-        if ($saveHumhub) {
-            if ($this->dryRun()) {
-                SyncLog::info("Dry run enabled - skipping save of user {$user->id}.");
-            } else {
-                $profile->save();
-                $user->save();
-            }
+        $result = $saveHumhub ? $this->saveHumhub($user) : true;
+
+        SyncLog::info("End syncing user {$user->id} from source {$from}: " . ($result ? "success" : "failed"));
+        return $result;
+    }
+
+    private function saveHumhub(User $user): bool
+    {
+        if ($this->dryRun()) {
+            SyncLog::info("Dry run enabled - skipping save of user {$user->id}.");
+            return true;
         }
-        SyncLog::info("End syncing user {$user->id} from source {$from}");
-        return true;
+        $profile = $user->profile;
+        $profileSaved = $profile->save(false);
+        $userSaved = $user->save();
+        return $profileSaved && $userSaved;
     }
 
     public function syncUsers(string $from = self::SRC_CIVICRM, array $users = []): array

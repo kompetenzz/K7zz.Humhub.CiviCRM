@@ -11,8 +11,9 @@ use yii\log\FileTarget;
 
 class Module extends BaseModule
 {
-    public $guid = 'civicrm';                     // ganz wichtig
+    public $guid = 'civicrm';
     public $controllerNamespace = __NAMESPACE__ . '\controllers';
+    public $resourcesPath = 'resources';
 
     public function init()
     {
