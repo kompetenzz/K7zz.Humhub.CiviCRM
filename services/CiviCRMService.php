@@ -440,7 +440,11 @@ class CiviCRMService
     {
         $q = User::find()
             ->joinWith('profile')
-            ->where(['=', 'profile.street', ""]);
+            ->andWhere([
+                'or',
+                ['profile.street' => ''],
+                ['profile.street' => null],
+            ]);
         if ($this->restrictToContactIds()) {
             SyncLog::info("Restricting all actions to contact IDs: " . json_encode($this->getEnabledContactIds()));
             $q->andWhere(['IN', "profile.{$this->settings->contactIdField}", $this->getEnabledContactIds()]);
