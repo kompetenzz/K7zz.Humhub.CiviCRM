@@ -365,6 +365,10 @@ class CiviCRMService
     public function sync(string $from = self::SRC_CIVICRM, bool $manual = false): bool
     {
         $users = $this->getConnectedUsers();
+        if (!count($users)) {
+            SyncLog::info("No connected CiviCRM users match your criteria.");
+            return true;
+        }
         SyncLog::info("Syncing " . count($users) . " connected CiviCRM users.");
         $handled = [];
         if ($this->settings->enableBaseSync) {
