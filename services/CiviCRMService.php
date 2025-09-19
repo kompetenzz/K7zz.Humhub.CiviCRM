@@ -445,17 +445,22 @@ class CiviCRMService
     private function getConnectedUsers(): array
     {
         $q = User::find()
-            ->joinWith('profile')
-            ->andWhere([
-                'or',
-                ['profile.street' => ''],
-                ['profile.street' => null],
-            ]);
+            ->joinWith('profile');
         if ($this->restrictToContactIds()) {
             SyncLog::info("Restricting all actions to contact IDs: " . json_encode($this->getEnabledContactIds()));
             $q->andWhere(['IN', "profile.{$this->settings->contactIdField}", $this->getEnabledContactIds()]);
         } else {
             $q->andWhere(['<>', "profile.{$this->settings->contactIdField}", 0]);
+            if ($this->settings->retryOnMissingField) {
+                SyncLog::info("Act only if field '{$this->settings->retryOnMissingField}'
+                
+                is empty.");
+                $q->andWhere([
+                    'or',
+                    ['IS', $this->settings->retryOnMissingField, null],
+                    ['=', $this->settings->retryOnMissingField, ''],
+                ]);
+            }
             if ($this->settings->limit > 0) {
                 SyncLog::info("Limiting user fetch to {$this->settings->limit} users.");
                 $q->limit($this->settings->limit);

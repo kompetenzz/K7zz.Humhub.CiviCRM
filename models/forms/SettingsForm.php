@@ -14,6 +14,7 @@ class SettingsForm extends CiviCRMSettings
             ['siteKey', 'string', 'max' => 255],
             ['secret', 'string', 'max' => 255],
             ['checksumField', 'string', 'max' => 255],
+            ['retryOnMissingField', 'string', 'max' => 255],
             ['contactIdField', 'string', 'max' => 255],
             ['activityIdField', 'string', 'max' => 255],
             [['enableBaseSync', 'autoFullSync', 'dryRun', 'strictDisable'], 'boolean'],
@@ -43,6 +44,7 @@ class SettingsForm extends CiviCRMSettings
             'limit' => Yii::t('CivicrmModule.config', 'Limit'),
             'offset' => Yii::t('CivicrmModule.config', 'Offset'),
             'restrictToContactIds' => Yii::t('CivicrmModule.config', 'Restrict running to specified contacts. Use any non numeric as delimiter'),
+            'retryOnMissingField' => Yii::t('CivicrmModule.config', 'Field which has to be empty to include in run.'),
             'fieldMapping' => Yii::t('CivicrmModule.config', 'Field Mapping HumHub2CiviCRM (JSON)'),
         ], parent::attributeLabels());
     }
@@ -67,6 +69,7 @@ class SettingsForm extends CiviCRMSettings
         $this->setHumhubSetting('limit', $this->limit);
         $this->setHumhubSetting('offset', $this->offset);
         $this->setHumhubSetting('restrictToContactIds', $this->restrictToContactIds);
+        $this->setHumhubSetting('retryOnMissingField', $this->retryOnMissingField);
         $this->setHumhubSetting('fieldMapping', $this->fieldMapping);
 
         return true;
