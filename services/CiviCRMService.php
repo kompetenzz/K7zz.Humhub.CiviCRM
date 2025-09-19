@@ -471,12 +471,12 @@ class CiviCRMService
 
     public function syncBases(?array $users = null): array
     {
-        SyncLog::info("Start syncing base data from CiviCRM to HumHub for all connected users.");
         $users = $users ?? $this->getConnectedUsers();
+        SyncLog::info("Start syncing base data from CiviCRM to HumHub for " . count($users) . " connected users.");
         $handled = [];
         foreach ($users as $user) {
             if (!$this->syncBase($user))
-                break;
+                continue;
             $handled[] = $user;
         }
         SyncLog::info("End syncing base data from CiviCRM to HumHub for all connected users.");
@@ -689,16 +689,16 @@ class CiviCRMService
         return $profileSaved && $userSaved;
     }
 
-    public function syncUsers(string $from = self::SRC_CIVICRM, array $users = []): array
+    public function syncUsers(string $from = self::SRC_CIVICRM, ?array $users = null): array
     {
         // Logic to sync all users with CiviCRM
         // This could involve fetching all users from the database and updating their CiviCRM records
-        SyncLog::info("Start syncing all users from source {$from}");
-        $users = count($users) ? $users : $this->getConnectedUsers();
+        $users = $users ?? $this->getConnectedUsers();
+        SyncLog::info("Start syncing " . count($users) . " users from source {$from}");
         $handled = [];
         foreach ($users as $user) {
             if (!$this->syncUser($user, $from))
-                break;
+                continue;
             $handled[] = $user;
         }
         SyncLog::info("End syncing all users from source {$from}");
