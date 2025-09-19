@@ -364,9 +364,11 @@ class CiviCRMService
 
     public function sync(string $from = self::SRC_CIVICRM, bool $manual = false): bool
     {
+        $users = $this->getConnectedUsers();
+        SyncLog::info("Syncing " . count($users) . " connected CiviCRM users.");
         $handled = [];
         if ($this->settings->enableBaseSync) {
-            $handled = $this->syncBases();
+            $handled = $this->syncBases($users);
         }
 
         if ($this->settings->autoFullSync || $manual) {
@@ -439,7 +441,12 @@ class CiviCRMService
     private function getConnectedUsers(): array
     {
         $q = User::find()
-            ->joinWith('profile');
+            ->joinWith('profile')
+            ->andWhere([
+                'or',
+                ['profile.street' => ''],
+                ['profile.street' => null],
+            ]);
         if ($this->restrictToContactIds()) {
             SyncLog::info("Restricting all actions to contact IDs: " . json_encode($this->getEnabledContactIds()));
             $q->andWhere(['IN', "profile.{$this->settings->contactIdField}", $this->getEnabledContactIds()]);
@@ -458,10 +465,10 @@ class CiviCRMService
             ->all();
     }
 
-    public function syncBases(): array
+    public function syncBases(?array $users = null): array
     {
         SyncLog::info("Start syncing base data from CiviCRM to HumHub for all connected users.");
-        $users = $this->getConnectedUsers();
+        $users = $users ?? $this->getConnectedUsers();
         $handled = [];
         foreach ($users as $user) {
             if (!$this->syncBase($user))
