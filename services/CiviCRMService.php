@@ -478,6 +478,7 @@ class CiviCRMService
             if (!$this->syncBase($user))
                 continue;
             $handled[] = $user;
+            $this->printPercent("Base syncing users", count($users), count($handled));
         }
         SyncLog::info("End syncing base data from CiviCRM to HumHub for all connected users.");
         return $handled;
@@ -689,6 +690,13 @@ class CiviCRMService
         return $profileSaved && $userSaved;
     }
 
+    private function printPercent(string $prefix, int $users, int $handled): string
+    {
+        $percent = round($handled / $users * 100, 2);
+        SyncLog::info("$prefix progress: {$handled}/{$users} ({$percent}%)");
+        return $percent;
+    }
+
     public function syncUsers(string $from = self::SRC_CIVICRM, ?array $users = null): array
     {
         // Logic to sync all users with CiviCRM
@@ -700,6 +708,7 @@ class CiviCRMService
             if (!$this->syncUser($user, $from))
                 continue;
             $handled[] = $user;
+            $this->printPercent("Syncing users", count($users), count($handled));
         }
         SyncLog::info("End syncing all users from source {$from}");
         return $handled;
