@@ -128,6 +128,9 @@ class CiviCRMService
         if (!in_array(strtolower($entity), self::ALLOWED_CIVICRM_ENTITIES)) {
             throw new \InvalidArgumentException("Entity '{$entity}' is not allowed.");
         }
+        if ($action === 'get') {
+            $params['select'] ??= ['*', 'custom.*'];
+        }
         SyncLog::debug("Calling CiviCRM API: {$entity}.{$action} with params: " . json_encode($params));
         $request = $this->httpClient
             ->createRequest()
@@ -654,6 +657,7 @@ class CiviCRMService
             SyncLog::error("Can't sync: No activity of type {$this->settings->activityTypeId} Id set up for user {$user->id} ({$user->email}).");
             return false;
         }
+        $activity = $this->singleActivity($activityId);
 
         // Sync fields based on mapping
         $params = [];
@@ -665,9 +669,13 @@ class CiviCRMService
         foreach ($this->settings->fieldMappings->mappings as $mapping) {
             // Update humhub from civicrm
             $humhubValue = $this->getHumhubValue($user, $mapping->humhubField);
-            $civiValue = $this->getCiviCRMValue($civicrmContact, $mapping);
-            SyncLog::debug("Comparing HumHub value '{$humhubValue}' with CiviCRM value '{$civiValue}' for field '{$mapping->humhubField}'");
-            if ($humhubValue == $civiValue) {
+            $humhubValueStr = json_encode($humhubValue);
+            $civiValue = $this->getCiviCRMValue($civicrmContact, $activity, $mapping);
+            $civiValueStr = json_encode($civiValue);
+
+            $changed = $humhubValue != $civiValue;
+            SyncLog::info("Comparing HumHub value '{$humhubValueStr}' with CiviCRM value '{$civiValueStr}' for field '{$mapping->humhubField}': " . ($changed ? "changed" : "no change"));
+            if (!$changed) {
                 continue; // No change needed
             }
             switch ($from) {
@@ -807,10 +815,14 @@ class CiviCRMService
         }
     }
 
-    public function getCiviCRMValue(array $civicrmContact, FieldMapping $mapping)
+    public function getCiviCRMValue(array $civicrmContact, array $activity, FieldMapping $mapping)
     {
         if (!$civicrmContact || empty($mapping->civiField)) {
             return null;
+        }
+        // Handle activity fields
+        if (strtolower($mapping->civiEntity) == 'activity') {
+            return $activity[$mapping->civiField] ?? null;
         }
         // Handle sub-entities
         if ($mapping->isSubEntity()) {
