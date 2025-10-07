@@ -1,6 +1,7 @@
 <?php
 namespace k7zz\humhub\civicrm\services;
 
+use humhub\modules\user\models\ProfileField;
 use humhub\modules\user\models\User;
 use humhub\modules\user\models\Profile;
 use k7zz\humhub\civicrm\components\SyncLog;
@@ -589,6 +590,7 @@ class CiviCRMService
                 continue; // Skip if the field was not changed
             }
 
+            SyncLog::info("Processing mapping for HumHub field '{$mapping->humhubField}' to CiviCRM field '{$mapping->civiField}'");
             $humhubValue = $this->getHumhubValue($user, $mapping->humhubField);
 
             if ($this->buildCiviCRMUpdateParams($civiCRMUpdateParams, $mapping, $humhubValue)) {
@@ -755,12 +757,36 @@ class CiviCRMService
     private function getHumhubValue($user, $field)
     {
         [$dataSrc, $fieldName] = explode('.', $field);
-        return match ($dataSrc) {
+        $rawValue = match ($dataSrc) {
             self::HUMHUB_DATA_SRC_USER => $user->$fieldName ?? null,
             self::HUMHUB_DATA_SRC_PROFILE => $user->profile->$fieldName ?? null,
             self::HUMHUB_DATA_SRC_ACCOUNT => $user->account->$fieldName ?? null,
             default => null,
         };
+
+        if ($rawValue === null) {
+            return null;
+        }
+        $profileField = ProfileField::findOne(['internal_name' => $fieldName]);
+        if (!$profileField) {
+            return $rawValue; // No special handling needed
+        }
+        return match ($profileField->field_type_class) {
+            'humhub\modules\user\models\fieldtype\CheckboxList' => $this->deserializeHumhubArray($rawValue),
+            default => $rawValue,
+        };
+    }
+
+    private function deserializeHumhubArray(?string $value): array
+    {
+        if ($value === null || $value === '') {
+            return [];
+        }
+
+        $parts = preg_split("/\r\n|\n|\r/", $value);
+        $sanitized = array_values(array_filter(array_map('trim', $parts), fn($v) => $v !== ''));
+        $unothered = array_diff($sanitized, ['other']);
+        return $unothered;
     }
 
     private function setHumhubValue($user, $field, $value): bool
