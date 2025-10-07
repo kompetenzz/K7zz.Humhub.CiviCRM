@@ -17,6 +17,7 @@ class CiviCRMSettings extends Model
     public int $activityTypeId = 0;
     public string $checksumField = 'civicrm_checksum';
     public bool $enableBaseSync = true;
+    public bool $enableOnChangeSync = false;
     public bool $autoFullSync = false;
     public bool $dryRun = false;
     public int $limit = 0;
@@ -48,6 +49,7 @@ class CiviCRMSettings extends Model
         $this->contactIdField = $this->getHumhubSetting('contactIdField') ?? 'civicrm_id';
         $this->checksumField = $this->getHumhubSetting('checksumField') ?? 'civicrm_checksum';
         $this->enableBaseSync = $this->getHumhubSetting('enableBaseSync') ?? true;
+        $this->enableOnChangeSync = $this->getHumhubSetting('enableOnChangeSync') ?? false;
         $this->autoFullSync = $this->getHumhubSetting('autoFullSync') ?? false;
         $this->dryRun = $this->getHumhubSetting('dryRun') ?? false;
         $this->limit = $this->getHumhubSetting('limit') ?? 0;

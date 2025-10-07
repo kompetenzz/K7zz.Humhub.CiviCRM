@@ -17,7 +17,7 @@ class SettingsForm extends CiviCRMSettings
             ['retryOnMissingField', 'string', 'max' => 255],
             ['contactIdField', 'string', 'max' => 255],
             ['activityIdField', 'string', 'max' => 255],
-            [['enableBaseSync', 'autoFullSync', 'dryRun', 'strictDisable'], 'boolean'],
+            [['enableBaseSync', 'autoFullSync', 'enableOnChangeSync', 'dryRun', 'strictDisable'], 'boolean'],
             [['activityTypeId', 'limit', 'offset'], 'integer'],
             [['restrictToContactIds'], 'string'],
             [['restrictToContactIds'], 'validateStringList', 'params' => ['type' => 'numeric']],
@@ -37,8 +37,9 @@ class SettingsForm extends CiviCRMSettings
             'activityIdField' => Yii::t('CivicrmModule.config', 'Profile field holding user\'s civicrm activity ID'),
             'checksumField' => Yii::t('CivicrmModule.config', 'Profile field holding user\'s civicrm checksum'),
             'activityTypeId' => Yii::t('CivicrmModule.config', 'CiviCRM ActivityTypeID'),
-            'strictDisable' => Yii::t('CivicrmModule.config', 'Disable users withoit CiviCRM activity.'),
+            'strictDisable' => Yii::t('CivicrmModule.config', 'Disable users without CiviCRM activity.'),
             'enableBaseSync' => Yii::t('CivicrmModule.config', 'Enable Base Sync'),
+            'enableOnChangeSync' => Yii::t('CivicrmModule.config', 'Enable On-Change profile synchronization.'),
             'autoFullSync' => Yii::t('CivicrmModule.config', 'Auto Full Sync'),
             'dryRun' => Yii::t('CivicrmModule.config', 'Dry Run (no data will be changed)'),
             'limit' => Yii::t('CivicrmModule.config', 'Limit'),
@@ -63,6 +64,7 @@ class SettingsForm extends CiviCRMSettings
         $this->setHumhubSetting('activityTypeId', $this->activityTypeId);
         $this->setHumhubSetting('checksumField', $this->checksumField);
         $this->setHumhubSetting('enableBaseSync', $this->enableBaseSync);
+        $this->setHumhubSetting('enableOnChangeSync', $this->enableOnChangeSync);
         $this->setHumhubSetting('strictDisable', $this->strictDisable);
         $this->setHumhubSetting('autoFullSync', $this->autoFullSync);
         $this->setHumhubSetting('dryRun', $this->dryRun);

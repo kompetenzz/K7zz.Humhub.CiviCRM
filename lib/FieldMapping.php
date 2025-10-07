@@ -1,6 +1,8 @@
 <?php
 namespace k7zz\humhub\civicrm\lib;
 
+use k7zz\humhub\civicrm\components\SyncLog;
+
 /**
  * Represents a mapping between a HumHub user field and a CiviCRM field.
  *
@@ -43,7 +45,8 @@ class FieldMapping
             }
             // Deserialized "entity.field" format 
             else {
-                [$this->civiEntity, $this->civiField] = explode('.', $civiFieldDefinition);
+                [$this->civiEntity, $this->civiField] = explode('.', $civiFieldDefinition, 2);
+                SyncLog::debug("Parsed FieldMapping: humhubField={$this->humhubField}, civiEntity={$this->civiEntity}, civiField={$this->civiField} from definition {$civiFieldDefinition}");
                 $this->params = [];
             }
         }
@@ -73,5 +76,32 @@ class FieldMapping
     public function isSrc($src): string
     {
         return str_starts_with($this->humhubField, $src . '.');
+    }
+
+    public function getBareHumhubFieldName(): string
+    {
+        [$dataSrc, $fieldName] = explode('.', $this->humhubField);
+        return $fieldName;
+    }
+
+    public function getHumhubFieldSrc(): string
+    {
+        [$dataSrc, $fieldName] = explode('.', $this->humhubField);
+        return $dataSrc;
+    }
+
+    public function fullHumhubFieldName(string $bareFieldName): string
+    {
+        return $this->getHumhubFieldSrc() . '.' . $bareFieldName;
+    }
+
+    public function isFor(string $bareOrFullFieldName, string $src = null): bool
+    {
+        if ($this->humhubField === $bareOrFullFieldName)
+            return true;
+        if ($src !== null) {
+            return $this->humhubField === $src . '.' . $bareOrFullFieldName;
+        }
+        return $this->getBareHumhubFieldName() === $bareOrFullFieldName;
     }
 }

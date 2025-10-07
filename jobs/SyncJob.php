@@ -11,7 +11,7 @@ use Yii;
 class SyncJob extends LongRunningActiveJob implements ExclusiveJobInterface
 {
     public static string $id = 'civicrm-sync';
-    public $from = CiviCRMService::SRC_CIVICRM;
+    public $from = CiviCRMService::SRC_BOTH;
     public bool $manual = false;
     public $settings = null;
 

@@ -55,12 +55,15 @@ use yii\bootstrap\ActiveForm;
                     <?= $form->field($model, 'enableBaseSync')
                         ->checkbox()
                         ->hint(Yii::t('CivicrmModule.config', 'Enable synchronization of activity id and checksum.')); ?>
-                    <?= $form->field($model, 'strictDisable')
+                    <?= $form->field($model, 'enableOnChangeSync')
                         ->checkbox()
-                        ->hint(Yii::t('CivicrmModule.config', 'Disable users without CiviCRM activity (Network profile).')); ?>
+                        ->hint(Yii::t('CivicrmModule.config', 'Enable direct synchronization of profile changes to CiviCRM.')); ?>
                     <?= $form->field($model, 'autoFullSync')
                         ->checkbox()
                         ->hint(Yii::t('CivicrmModule.config', 'Enable automatic scheduled daily synchronization of profile data.')); ?>
+                    <?= $form->field($model, 'strictDisable')
+                        ->checkbox()
+                        ->hint(Yii::t('CivicrmModule.config', 'Disable users without CiviCRM activity (Network profile).')); ?>
 
                     <?= $form->field($model, 'retryOnMissingField')
                         ->textInput(options: ['placeholder' => 'field_name, e.g. profile.street'])
@@ -93,27 +96,39 @@ use yii\bootstrap\ActiveForm;
                             </div>
                         </div>
                     </div>
-                    <div class="row mt-3">
+                    <div>
                         <h3><?= Yii::t('CivicrmModule.config', 'Actions') ?></h3>
                         <p>
                             <?= Yii::t('CivicrmModule.config', 'Clicking this actions will <b>save</b> settings!'); ?>
                         </p>
-                        <div class="well">
-                            <p>
-                                <?= Yii::t('CivicrmModule.config', 'You can manually trigger a sync from CiviCRM to HumHub.'); ?>
-                            </p>
-                            <button class="btn btn-primary pull-right" type="submit" name="sync-from-civi" value="1"
-                                data-ui-loader><?= Yii::t('CivicrmModule.config', 'Sync from CiviCRM') ?></button>
+                        <div class="row">
+                            <div class="well col-md-6">
+                                <p>
+                                    <?= Yii::t('CivicrmModule.config', 'You can manually trigger a sync from CiviCRM to HumHub.'); ?>
+                                </p>
+                                <button class="btn btn-primary pull-right" type="submit" name="force-sync"
+                                    value="civicrm"><?= Yii::t('CivicrmModule.config', 'Sync from CiviCRM') ?></button>
 
+                            </div>
+                            <div class="well col-md-6">
+                                <p>
+                                    <?= Yii::t('CivicrmModule.config', 'You can manually trigger a full sync as if it would run daily.'); ?>
+                                </p>
+                                <button class="btn btn-primary pull-right" type="submit" name="force-sync"
+                                    value="daily"><?= Yii::t('CivicrmModule.config', 'Run daily sync') ?></button>
+
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
+            <button class="btn btn-primary" data-ui-loader name="sync-from-civi" value="0">
+                <?= Yii::t('base', 'Save') ?></button>
+            <?php ActiveForm::end() ?>
         </div>
     </div>
 </div>
 
-<button class="btn btn-primary" data-ui-loader><?= Yii::t('base', 'Save') ?></button>
 
 <?php
 $enableId = Html::getInputId($model, 'enableBaseSync');
@@ -138,7 +153,3 @@ JS;
 
 $this->registerJs($js, yii\web\View::POS_READY);
 ?>
-<?php ActiveForm::end() ?>
-</div>
-
-</div>

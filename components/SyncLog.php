@@ -28,10 +28,17 @@ final class SyncLog
         Yii::getLogger()->log(self::payload($msg, $ctx), Logger::LEVEL_WARNING, self::LOG_CATEGORY_SYNC);
     }
 
+    public static function debug(string $msg, array $ctx = []): void
+    {
+        self::init();
+        Yii::getLogger()->log(self::payload($msg, $ctx), Logger::LEVEL_TRACE, self::LOG_CATEGORY_SYNC);
+    }
+
     public static function error(string $msg, array $ctx = []): void
     {
         self::init();
         Yii::getLogger()->log(self::payload($msg, $ctx), Logger::LEVEL_ERROR, self::LOG_CATEGORY_SYNC);
+        Yii::error(self::payload($msg, $ctx), self::LOG_CATEGORY_SYNC);
     }
 
     private static function payload(string $msg, array $ctx): array|string
