@@ -40,8 +40,8 @@ class Module extends BaseModule
             'categories' => [SyncLog::LOG_CATEGORY_SYNC],
             'levels' => ['error', 'warning', 'info'], // bei Bedarf 'trace' ergänzen
             'logVars' => [],                          // $_SERVER etc. weglassen
-            'maxFileSize' => 10240,                   // 10 MB
-            'maxLogFiles' => 10,                      // Rotation
+            'maxFileSize' => 1024,                   // 1 MB
+            'maxLogFiles' => 20,                      // Rotation
             'exportInterval' => 1,                    // sofort schreiben (nützlich bei CLI)
             'prefix' => function ($message) use ($prefix) {
                 return "$prefix ";

@@ -12,7 +12,7 @@ use yii\bootstrap\ActiveForm;
         <h1><?= Yii::t('CivicrmModule.config', '<strong>CiviCRM</strong> Integration'); ?></h1>
 
         <p><?= Yii::t('CivicrmModule.config', 'Please configure all settings carefully and double check with your profile fields and CiviCRM settings.') ?>
-            <?= Yii::t('CivicrmModule.config', 'You may use the dry-run feature alongside with contact ID restriction and manual triggering.') ?>
+            <?= Yii::t('CivicrmModule.config', 'You may use the dry-run feature alongside with contact Id restriction and manual triggering.') ?>
         </p>
 
         <p class="text-small"><?= Yii::t(
@@ -82,7 +82,7 @@ use yii\bootstrap\ActiveForm;
                         <?= $form->field($model, 'dryRun')->checkbox(); ?>
                         <?= $form->field($model, 'restrictToContactIds')
                             ->textarea(['rows' => 3, 'placeholder' => '10000,12000,1234'])
-                            ->hint(Yii::t('CivicrmModule.config', 'Comma-separated list of contact IDs to restrict actions to.')); ?>
+                            ->hint(Yii::t('CivicrmModule.config', 'Comma-separated list of contact Ids to restrict actions to.')); ?>
                         <div class="row">
                             <div class="col-md-6">
                                 <?= $form->field($model, 'limit')

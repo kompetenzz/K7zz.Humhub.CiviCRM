@@ -75,6 +75,11 @@ class CiviCRMService
         return $this->settings->dryRun;
     }
 
+    private function activityEnabled(): bool
+    {
+        return $this->settings->activityTypeId > 0 && !empty($this->settings->activityIdField);
+    }
+
     private function restrictToContactIds(): bool
     {
         return !empty($this->settings->restrictToContactIds);
@@ -206,24 +211,28 @@ class CiviCRMService
         return $this->call($entity, 'create', $params);
     }
 
-    private function updateEntities(int $contactId, int $activityId, array $params): void
+    private function updateEntities(int $contactId, int $activityId, array $params): bool
     {
         if (empty($params)) {
-            return; // No changes to sync
+            return true; // No changes to sync
         }
 
+        $okay = true;
         // Update main entities with multiple fields
         foreach ($params as $entity => $targetParams) {
+            if (!$okay) {
+                break; // Stop processing if any update failed
+            }
             switch ($entity) {
                 case 'contact':
-                    $this->updateContact($contactId, $targetParams);
+                    $okay = $okay && $this->updateContact($contactId, $targetParams);
                     break;
                 case 'activity':
-                    $this->updateActivity($activityId, $targetParams);
+                    $okay = $okay && $this->updateActivity($activityId, $targetParams);
                     break;
                 case 'subEntities':
                     foreach ($targetParams as $subEntity) {
-                        $this->updateSubEntity(
+                        $okay = $okay && $this->updateSubEntity(
                             $subEntity['entity'],
                             $contactId,
                             $subEntity['field'],
@@ -233,16 +242,17 @@ class CiviCRMService
                     }
                     break;
                 default:
+                    $okay = false;
                     break; // Unknown entity, skip
             }
         }
-
+        return $okay;
     }
 
     private function getSubEntity(string $entity, int $contactId, ?array $where): array|null
     {
         if (!$contactId) {
-            throw new \InvalidArgumentException("Contact ID is required for fetching sub-entity.");
+            throw new \InvalidArgumentException("Contact Id is required for fetching sub-entity.");
         }
         $params = [
             'where' => [
@@ -256,7 +266,7 @@ class CiviCRMService
         }
         $results = $this->call($entity, 'get', $params);
         if (count($results) > 1) {
-            Yii::error("Multiple sub-entities found for contact ID {$contactId} in entity {$entity}. Returning first result.");
+            Yii::error("Multiple sub-entities found for contact Id {$contactId} in entity {$entity}. Returning first result.");
         }
         return $results[0] ?? null; // Return the first result or an empty array if
     }
@@ -269,7 +279,7 @@ class CiviCRMService
         ?array $additionalParams = null
     ): array {
         if (!$contactId || !$civicrmField) {
-            throw new \InvalidArgumentException("Contact ID and CiviCRM field are required for update.");
+            throw new \InvalidArgumentException("Contact Id and CiviCRM field are required for update.");
         }
         // If exists, update sub-entity
         $subEntity = $this->getSubEntity($entity, $contactId, $additionalParams);
@@ -328,7 +338,7 @@ class CiviCRMService
                 $id = $parameters[0] ?? 0;
                 $values = $parameters[1] ?? [];
                 if (!$id || empty($values)) {
-                    throw new \InvalidArgumentException("ID and values needed  for update action.");
+                    throw new \InvalidArgumentException("Id and values needed  for update action.");
                 }
                 return $this->update(
                     $entity,
@@ -352,7 +362,7 @@ class CiviCRMService
     private function getActivityFromContact(?int $contactId): ?array
     {
         if (!$contactId) {
-            return null; // Contact ID is null, cannot fetch activity
+            return null; // Contact Id is null, cannot fetch activity
         }
         // Get latest activity of $contactid and $this->activitytypeid with status active
         $params = [
@@ -373,14 +383,14 @@ class CiviCRMService
         ];
         $activities = $this->call('activity', 'get', $params);
         if (count($activities) == 0) {
-            SyncLog::warning("No activity found for contact ID {$contactId}.");
+            SyncLog::warning("No activity found for contact Id {$contactId}.");
             return null;
         }
         if (count($activities) > 1) {
             foreach ($activities as $activity) {
-                SyncLog::warning("Multiple activities found for contact ID {$contactId}");
+                SyncLog::warning("Multiple activities found for contact Id {$contactId}");
                 if (in_array($activity['status_id'], $this->allowedActivityStati)) {
-                    SyncLog::info("Selecting activity ID {$activity['id']} by status {$activity['status_id']}");
+                    SyncLog::info("Selecting activity Id {$activity['id']} by status {$activity['status_id']}");
                     return $activity;
                 }
                 SyncLog::warning("No activity in allowed stati. Taking first one…");
@@ -427,12 +437,12 @@ class CiviCRMService
         $profile = $user->profile;
         $contactId = $profile->{$this->settings->contactIdField} ?? null;
         if (!$contactId) {
-            return true; // No contact ID, nothing to sync
+            return true; // No contact Id, nothing to sync
         }
 
         $civicrmContact = $this->singleContact($contactId);
         if (!$civicrmContact) {
-            SyncLog::error("No CiviCRM contact found for ID {$contactId}. Skipping user {$user->id}.");
+            SyncLog::error("No CiviCRM contact found for Id {$contactId}. Skipping user {$user->id}.");
             return false;
         }
 
@@ -446,18 +456,18 @@ class CiviCRMService
             if ($checksum && $profile->{$this->settings->checksumField} !== $checksum) {
                 $profile->{$this->settings->checksumField} = $checksum;
                 $save = true;
-                SyncLog::info("Updated checksum (CiviCRM Contact ID {$contactId}).");
+                SyncLog::info("Updated checksum (CiviCRM Contact Id {$contactId}).");
             }
         }
 
-        // Sync activity ID and account status
+        // Sync activity Id and account status
         $activity = $this->getActivityFromContact($contactId);
         $activityId = $activity['id'] ?? null;
         if ($activityId) {
-            SyncLog::info("Found activity ID {$activityId} for contact ID {$contactId}.");
+            SyncLog::info("Found activity Id {$activityId} for contact Id {$contactId}.");
             if ($profile->{$this->settings->activityIdField} !== $activityId) {
                 $profile->{$this->settings->activityIdField} = $activityId;
-                SyncLog::info("Updated activity to ID {$activityId}.");
+                SyncLog::info("Updated activity to Id {$activityId}.");
                 $save = true;
             }
             $profileEnabled = $this->isProfileEnabled($activity);
@@ -540,20 +550,28 @@ class CiviCRMService
         }
         $civicrmContact = $this->singleContact($contactId);
         if (!$civicrmContact) {
-            SyncLog::error("Can't sync: CiviCRM contact with ID {$contactId} not found for user " . ($profile->user ? $profile->user->displayName : 'n/a') . " (id: " . ($profile->user ? $profile->user->id : 'n/a') . ").");
+            SyncLog::error("Can't sync: CiviCRM contact with Id {$contactId} not found for user " . ($profile->user ? $profile->user->displayName : 'n/a') . " (id: " . ($profile->user ? $profile->user->id : 'n/a') . ").");
             return;
         }
         $activityId = $profile->{$this->settings->activityIdField} ?? null;
 
         $user = $profile->getUser()->one();
+        if ($this->isLocked($user)) {
+            SyncLog::info("Skipping on-change sync for user {$user->id} ({$user->email}) - sync lock active.");
+            return;
+        }
 
         if ($this->settings->enableBaseSync) {
             $this->syncBase($user);
             $activityId = $profile->{$this->settings->activityIdField} ?? null;
         }
-
+        if ($this->activityEnabled() && !$activityId) {
+            SyncLog::error("Can't sync: No activity of type {$this->settings->activityTypeId} Id set up for user {$user->id} ({$user->email}).");
+            return;
+        }
         SyncLog::info(". . . . . . . . . . . .");
         SyncLog::info("Start on-change syncing user {$user->id} ({$user->email}) from source {$eventSrc}");
+
         // Combine changed fields and unchanged fields of subentities that have to be synced completely
         $fieldsToSync = array_keys($valuesBeforeChange);
         foreach ($fieldsToSync as $fieldName) {
@@ -620,16 +638,20 @@ class CiviCRMService
         $profile = $user->profile;
         $contactId = $profile->{$this->settings->contactIdField} ?? null;
         if (!$contactId) {
-            return true; // No contact ID, nothing to sync
+            return true; // No contact Id, nothing to sync
         }
         $civicrmContact = $this->singleContact($contactId);
         if (!$civicrmContact) {
-            SyncLog::error("Can't sync: CiviCRM contact with ID {$contactId} not found for user {$user->id} ({$user->email}).");
+            SyncLog::error("Can't sync: CiviCRM contact with Id {$contactId} not found for user {$user->id} ({$user->email}).");
             return false;
         }
         SyncLog::info(". . . . . . . . . . . .");
         SyncLog::info("Start syncing user {$user->id} ({$user->email}) from source {$from}");
         $activityId = $profile->{$this->settings->activityIdField} ?? null;
+        if ($this->activityEnabled() && !$activityId) {
+            SyncLog::error("Can't sync: No activity of type {$this->settings->activityTypeId} Id set up for user {$user->id} ({$user->email}).");
+            return false;
+        }
 
         // Sync fields based on mapping
         $params = [];
@@ -657,7 +679,7 @@ class CiviCRMService
                     break;
                 case self::SRC_CIVICRM:
                     if ($this->setHumhubValue($user, $mapping->humhubField, $civiValue)) {
-                        SyncLog::info("Updated HumHub field '{$mapping->humhubField}' for user {$user->id}");
+                        SyncLog::info("Prepared HumHub field '{$mapping->humhubField}' for user {$user->id}");
                         $saveHumhub = true;
                     } else {
                         SyncLog::error("Failed to update HumHub field '{$mapping->humhubField}' for user {$user->id}");
@@ -675,13 +697,32 @@ class CiviCRMService
         return $result;
     }
 
+    private function lockFor(User $user, int $seconds): void
+    {
+        Yii::$app->cache->set("civicrm-sync-block.$user->id", 1, $seconds);
+    }
+    private function lock(User $user): void
+    {
+        $this->lockFor($user, 30); // Default lock for 30 seconds
+    }
+    private function isLocked(User $user): bool
+    {
+        return Yii::$app->cache->get("civicrm-sync-block.$user->id") === 1;
+    }
+    private function unlock(User $user): void
+    {
+        Yii::$app->cache->delete("civicrm-sync-block.$user->id");
+    }
+
     private function saveHumhub(User $user): bool
     {
         if ($this->dryRun()) {
             SyncLog::info("Dry run enabled - skipping save of user {$user->id}.");
             return true;
         }
+
         $profile = $user->profile;
+        $this->lock($user);
         $profileSaved = $profile->save(false);
         $userSaved = $user->save();
         return $profileSaved && $userSaved;
