@@ -24,6 +24,7 @@ class SettingsForm extends CiviCRMSettings
             [['fieldMapping'], 'string'],
             [['fieldMapping'], 'validateJson'],
             [['fieldMapping'], 'default', 'value' => '{}'],
+            [['contactCustomFieldGroups', 'activityCustomFieldGroups'], 'string'],
         ], parent::rules());
     }
 
@@ -47,6 +48,8 @@ class SettingsForm extends CiviCRMSettings
             'restrictToContactIds' => Yii::t('CivicrmModule.config', 'Restrict running to specified contacts. Use any non numeric as delimiter'),
             'retryOnMissingField' => Yii::t('CivicrmModule.config', 'Field which has to be empty to include in run.'),
             'fieldMapping' => Yii::t('CivicrmModule.config', 'Field Mapping HumHub2CiviCRM (JSON)'),
+            'contactCustomFieldGroups' => Yii::t('CivicrmModule.config', 'Contact Custom Fields Group names (comma separated)'),
+            'activityCustomFieldGroups' => Yii::t('CivicrmModule.config', 'Activity Custom Fields Group names (comma separated)'),
         ], parent::attributeLabels());
     }
 
@@ -73,6 +76,8 @@ class SettingsForm extends CiviCRMSettings
         $this->setHumhubSetting('restrictToContactIds', $this->restrictToContactIds);
         $this->setHumhubSetting('retryOnMissingField', $this->retryOnMissingField);
         $this->setHumhubSetting('fieldMapping', $this->fieldMapping);
+        $this->setHumhubSetting('contactCustomFieldGroups', $this->contactCustomFieldGroups);
+        $this->setHumhubSetting('activityCustomFieldGroups', $this->activityCustomFieldGroups);
 
         return true;
     }

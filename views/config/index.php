@@ -69,6 +69,13 @@ use yii\bootstrap\ActiveForm;
                         ->textInput(options: ['placeholder' => 'field_name, e.g. profile.street'])
                         ->hint(Yii::t('CivicrmModule.config', 'If this field has not value, contact will be synced. Use to partially rerun.')); ?>
 
+                    <?= $form->field($model, 'contactCustomFieldGroups')
+                        ->textInput(['placeholder' => 'Group1, Group2'])
+                        ->hint(Yii::t('CivicrmModule.config', 'Will be used for field selects on api get requests.')); ?>
+                    <?= $form->field($model, 'activityCustomFieldGroups')
+                        ->textInput(['placeholder' => 'Group1, Group2'])
+                        ->hint(Yii::t('CivicrmModule.config', 'Will be used for field selects on api get requests.')); ?>
+
                     <?= $form->field($model, 'fieldMapping')
                         ->textarea(['rows' => 20, 'placeholder' => '{"profile.firstname": "contact.first_name", "profile.beratung": "activity.beratung"}'])
                         ->hint(Yii::t('CivicrmModule.config', 'JSON string for field mapping. Example: {"profile.firstname": "contact.first_name", "profile.beratung": "activity.beratung"}')); ?>

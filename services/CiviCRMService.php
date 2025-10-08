@@ -86,6 +86,32 @@ class CiviCRMService
         return !empty($this->settings->restrictToContactIds);
     }
 
+    private function getCustomFieldIncludes(string $entity): array
+    {
+        $includes = [];
+        $stringList = '';
+        switch (strtolower($entity)) {
+            case 'contact':
+                $stringList = $this->settings->contactCustomFieldGroups;
+                break;
+            case 'activity':
+                $stringList = $this->settings->activityCustomFieldGroups;
+                break;
+        }
+        SyncLog::info($stringList);
+        if (!empty($stringList)) {
+            $groups = array_map('trim', explode(',', $stringList));
+            foreach ($groups as $group) {
+                if ($group) {
+                    $includes[] = "{$group}.*";
+                }
+            }
+        } else {
+            $includes[] = "custom.*";
+        }
+        return $includes;
+    }
+
     private function getEnabledContactIds(): array
     {
         $stringList = $this->settings->restrictToContactIds;
@@ -128,8 +154,13 @@ class CiviCRMService
         if (!in_array(strtolower($entity), self::ALLOWED_CIVICRM_ENTITIES)) {
             throw new \InvalidArgumentException("Entity '{$entity}' is not allowed.");
         }
-        if ($action === 'get') {
-            $params['select'] ??= ['*', 'custom.*'];
+        if (
+            $action === 'get'
+            && (!array_key_exists('select', $params)
+                || empty($params['select']))
+        ) {
+            $includes = $this->getCustomFieldIncludes($entity);
+            $params['select'] = array_merge(['*'], $includes);
         }
         $isWrite = in_array($action, $this->writingCiviActions);
         SyncLog::debug("Calling CiviCRM API: {$entity}.{$action} with params: " . json_encode($params));
@@ -377,7 +408,7 @@ class CiviCRMService
                     [
                         ['assignee_contact_id', '=', $contactId],
                         ['source_record_id', '=', $contactId],
-                        ['target_contact_id', '=', $contactId]
+                        ['target_contact_id', 'CONTAINS', $contactId]
                     ]
                 ],
                 ['activity_type_id', '=', $this->settings->activityTypeId]

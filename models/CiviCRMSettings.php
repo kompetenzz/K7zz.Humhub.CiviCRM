@@ -26,6 +26,8 @@ class CiviCRMSettings extends Model
     public string $restrictToContactIds = "";
     public string $retryOnMissingField = '';
     public string $fieldMapping = '{}';
+    public string $contactCustomFieldGroups = '';
+    public string $activityCustomFieldGroups = '';
 
     public ?FieldMappingCollection $fieldMappings = null;
 
@@ -61,6 +63,8 @@ class CiviCRMSettings extends Model
         $this->retryOnMissingField = $this->getHumhubSetting('retryOnMissingField') ?? '';
         $this->fieldMapping = $this->getHumhubSetting('fieldMapping') ?? '{}';
         $this->fieldMappings = new FieldMappingCollection($this->fieldMapping);
+        $this->contactCustomFieldGroups = $this->getHumhubSetting('contactCustomFieldGroups') ?? '';
+        $this->activityCustomFieldGroups = $this->getHumhubSetting('activityCustomFieldGroups') ?? '';
     }
 
     protected function setHumhubSetting($property, $value)
