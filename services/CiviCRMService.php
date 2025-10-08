@@ -163,7 +163,7 @@ class CiviCRMService
             $params['select'] = array_merge(['*'], $includes);
         }
         $isWrite = in_array($action, $this->writingCiviActions);
-        SyncLog::debug("Calling CiviCRM API: {$entity}.{$action} with params: " . json_encode($params));
+        SyncLog::info("Calling CiviCRM API: {$entity}.{$action} with params: " . json_encode($params));
         $request = $this->httpClient
             ->createRequest()
             ->setMethod('POST')
@@ -596,6 +596,8 @@ class CiviCRMService
             SyncLog::info("Skipping on-change sync for user {$user->id} ({$user->email}) - sync lock active.");
             return;
         }
+        SyncLog::info(". . . . . . . . . . . .");
+        SyncLog::info("Start on-change syncing user {$user->id} ({$user->email}) from source {$eventSrc}");
 
         if ($this->settings->enableBaseSync) {
             $this->syncBase($user);
@@ -605,8 +607,6 @@ class CiviCRMService
             SyncLog::error("Can't sync: No activity of type {$this->settings->activityTypeId} Id set up for user {$user->id} ({$user->email}).");
             return;
         }
-        SyncLog::info(". . . . . . . . . . . .");
-        SyncLog::info("Start on-change syncing user {$user->id} ({$user->email}) from source {$eventSrc}");
 
         // Combine changed fields and unchanged fields of subentities that have to be synced completely
         $fieldsToSync = array_keys($valuesBeforeChange);
@@ -629,7 +629,7 @@ class CiviCRMService
             $humhubValue = $this->getHumhubValue($user, $mapping->humhubField);
 
             if ($this->buildCiviCRMUpdateParams($civiCRMUpdateParams, $mapping, $humhubValue)) {
-                SyncLog::debug("Params prepared for CiviCRM field '{$mapping->civiField}' for contact {$contactId}");
+                SyncLog::info("Params prepared for CiviCRM field '{$mapping->civiField}' for contact {$contactId}");
             } else {
                 SyncLog::error("Failed prepare CiviCRM field params for '{$mapping->civiField}' of contact {$contactId}");
             }
@@ -706,7 +706,7 @@ class CiviCRMService
             $civiValueStr = json_encode($civiValue);
 
             $changed = $humhubValue != $civiValue;
-            SyncLog::info("Comparing HumHub value '{$humhubValueStr}' with CiviCRM value '{$civiValueStr}' for field '{$mapping->humhubField}': " . ($changed ? "changed" : "no change"));
+            SyncLog::info("'{$mapping->humhubField}' | HumHub: '{$humhubValueStr}' == CiviCRM: '{$civiValueStr}'? " . ($changed ? "changed" : "no change"));
             if (!$changed) {
                 continue; // No change needed
             }
@@ -714,7 +714,7 @@ class CiviCRMService
                 case self::SRC_HUMHUB:
                 case self::SRC_BOTH:
                     if ($this->buildCiviCRMUpdateParams($civiCRMUpdateParams, $mapping, $humhubValue)) {
-                        SyncLog::debug("Params prepared for CiviCRM field '{$mapping->civiField}' for contact {$contactId}");
+                        SyncLog::info("Params prepared for CiviCRM field '{$mapping->civiField}' for contact {$contactId}");
                     } else {
                         SyncLog::error("Failed prepare CiviCRM field params for '{$mapping->civiField}' of contact {$contactId}");
                     }

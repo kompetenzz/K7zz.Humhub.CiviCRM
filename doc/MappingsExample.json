@@ -5,30 +5,33 @@
         "entity": "address",
         "field": "street_address",
         "params": {
-            "location_type_id": 2
+            "location_type_id": 20
         }
     },
     "profile.zip": {
         "entity": "address",
         "field": "postal_code",
         "params": {
-            "location_type_id": 2
+            "location_type_id": 20
         }
     },
     "profile.city": {
         "entity": "address",
         "field": "city",
         "params": {
-            "location_type_id": 2
+            "location_type_id": 20
         }
     },
     "profile.title": "contact.formal_title",
-    "profile.organisation_art": "activity.custom_641",
-    "profile.organisation_art_sonstige": "activity.custom_642",
-    "profile.expertise": "activity.custom_645",
-    "profile.expertise_other_selection": "activity.custom_648",
-    "profile.bundesland": "activity.custom_646",
-    "profile.ueber2": "activity.custom_647",
+    "profile.position": "contact.job_title",
+    "profile.department": "contact.Kompi.Funktion_Arbeitsbereich",
+    "profile.organisation_art": "activity.ZkD_Netzwerkprofil.Organisationstyp",
+    "profile.organisation_art_sonstige": "activity.ZkD_Netzwerkprofil.Sonstiger_Organisationstyp",
+    "profile.expertise": "activity.ZkD_Netzwerkprofil.Fachbereich_Expertise",
+    "profile.expertise_other_selection": "activity.ZkD_Netzwerkprofil.Sonstiges_Themenfeld",
+    "profile.funktion": "activity.ZkD_Netzwerkprofil.Funktion",
+    "profile.bundesland": "activity.ZkD_Netzwerkprofil.Bundesland",
+    "profile.ueber2": "activity.ZkD_Netzwerkprofil._ber_mich",
     "profile.url_linkedin": {
         "entity": "website",
         "params": {

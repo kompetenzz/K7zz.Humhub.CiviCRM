@@ -46,7 +46,7 @@ class FieldMapping
             // Deserialized "entity.field" format 
             else {
                 [$this->civiEntity, $this->civiField] = explode('.', $civiFieldDefinition, 2);
-                SyncLog::debug("Parsed FieldMapping: humhubField={$this->humhubField}, civiEntity={$this->civiEntity}, civiField={$this->civiField} from definition {$civiFieldDefinition}");
+                SyncLog::info("Parsed FieldMapping: humhubField={$this->humhubField}, civiEntity={$this->civiEntity}, civiField={$this->civiField} from definition {$civiFieldDefinition}");
                 $this->params = [];
             }
         }
