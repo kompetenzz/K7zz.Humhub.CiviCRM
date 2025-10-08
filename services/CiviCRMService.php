@@ -98,7 +98,6 @@ class CiviCRMService
                 $stringList = $this->settings->activityCustomFieldGroups;
                 break;
         }
-        SyncLog::info($stringList);
         if (!empty($stringList)) {
             $groups = array_map('trim', explode(',', $stringList));
             foreach ($groups as $group) {
