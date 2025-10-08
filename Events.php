@@ -77,6 +77,7 @@ class Events
             return null;
         }
         $module = Yii::$app->getModule('civicrm');
+        SyncLog::info("Queuing daily CiviCRM sync");
         return Yii::$app->queue->push(new SyncJob([
             'settings' => $module->settings,
             'manual' => $force,

@@ -13,7 +13,7 @@ return [
     'Clicking this actions will <b>save</b> settings!' => 'Durch Klicken auf diese Aktionen werden die Einstellungen <b>gespeichert</b>!',
     'Disable users without CiviCRM activity (Network profile).' => 'Deaktiviere Benutzer*innen ohne CiviCRM-Aktivität (Netzwerkprofil).',
     'Disable users without CiviCRM activity.' => 'Deaktiviere Benutzer*innen ohne CiviCRM-Aktivität.',
-    'Dry Run (no data will be changed)' => 'Trockenlauf (es werden keine Daten geändert)',
+    'Dry Run (no data will be changed)' => 'Dry-Run (es werden keine Daten geändert)',
     'Enable Base Sync' => 'Basis-Synchronisierung aktivieren',
     'Enable On-Change profile synchronization.' => 'Aktiviere die Synchronisierung von Profiländerungen.',
     'Enable automatic scheduled daily synchronization of profile data.' => 'Aktiviere die automatische geplante tägliche Synchronisierung der Profildaten.',

@@ -118,9 +118,9 @@ class CiviCRMService
      * @param string $entity
      * @param string $action
      * @param array $params
-     * @return array
+     * @return array | bool (array on read, true/false on write actions)
      */
-    private function call(string $entity, string $action, array $params = []): array
+    private function call(string $entity, string $action, array $params = []): array|bool
     {
         if (!$this->isPrepared()) {
             $this->prepareAPI();
@@ -131,6 +131,7 @@ class CiviCRMService
         if ($action === 'get') {
             $params['select'] ??= ['*', 'custom.*'];
         }
+        $isWrite = in_array($action, $this->writingCiviActions);
         SyncLog::debug("Calling CiviCRM API: {$entity}.{$action} with params: " . json_encode($params));
         $request = $this->httpClient
             ->createRequest()
@@ -139,9 +140,9 @@ class CiviCRMService
             ->setData([
                 'params' => json_encode($params)
             ]);
-        if ($this->dryRun() && in_array($action, $this->writingCiviActions)) {
+        if ($this->dryRun() && $isWrite) {
             SyncLog::info("Dry run enabled - skipping {$entity}.{$action} with params: " . json_encode($params));
-            return []; // Return an empty array as a placeholder
+            return true; // Return an empty array as a placeholder
         }
         $response = $request
             ->send();
@@ -149,14 +150,14 @@ class CiviCRMService
             if (!empty($response->data['error_message'])) {
                 Yii::error("CiviCRM API call failed: {$response->data['error_message']}. \n
                                 | {$entity}.{$action} with params: " . json_encode($params));
-                return []; // Return an empty array as a placeholder
+                return false; // Return false on error
             }
-            return $response->data['values'] ?? []; // Return the 'values' key if it exists
+            return $isWrite ? true : $response->data['values'] ?? $response->data; // Return the 'values' key if it exists
         }
         SyncLog::error("CiviCRM API call failed with status {$response->statusCode}: {$response->content}. \n
             | {$entity}.{$action} with params: " . json_encode($params));
 
-        return []; // Return an empty array as a placeholder
+        return $isWrite ? false : []; // Return false on error
     }
 
     private function get(string $entity, array $where = [], int $limit = 10, int $offset = 0): array
@@ -200,7 +201,7 @@ class CiviCRMService
         return $result;
     }
 
-    public function update(string $entity, int $id, array $values = []): array
+    public function update(string $entity, int $id, array $values = []): bool
     {
         $params['values'] = $values;
         $params['where'] = [
@@ -209,7 +210,7 @@ class CiviCRMService
         return $this->call($entity, 'update', $params);
     }
 
-    public function create(string $entity, array $values = []): array
+    public function create(string $entity, array $values = []): bool
     {
         $params['values'] = $values;
         return $this->call($entity, 'create', $params);
@@ -281,7 +282,7 @@ class CiviCRMService
         string $civicrmField,
         mixed $value,
         ?array $additionalParams = null
-    ): array {
+    ): bool {
         if (!$contactId || !$civicrmField) {
             throw new \InvalidArgumentException("Contact Id and CiviCRM field are required for update.");
         }
@@ -307,10 +308,10 @@ class CiviCRMService
      * 
      * @param string $name
      * @param array $parameters
-     * @return array|null
+     * @return array|bool|null
      * @throws \BadMethodCallException
      */
-    function __call($name, $parameters): array|null
+    function __call($name, $parameters): array|bool|null
     {
         $callParts = $this->parseMethodName($name);
         if ($callParts === null) {
