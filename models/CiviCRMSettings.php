@@ -29,6 +29,10 @@ class CiviCRMSettings extends Model
     public string $contactCustomFieldGroups = '';
     public string $activityCustomFieldGroups = '';
 
+    public string $includeGroupsString = '';
+    public array $includeGroups = [];
+    public string $excludeGroupsString = '';
+    public array $excludeGroups = [];
     public ?FieldMappingCollection $fieldMappings = null;
 
     public function __construct($humhubSettings = null)
@@ -58,6 +62,10 @@ class CiviCRMSettings extends Model
         $this->offset = $this->getHumhubSetting('offset') ?? 0;
         $this->strictDisable = $this->getHumhubSetting('strictDisable') ?? false;
         $this->restrictToContactIds = $this->getHumhubSetting('restrictToContactIds') ?? '';
+        $this->includeGroupsString = $this->getHumhubSetting('includeGroupsString') ?? '';
+        $this->includeGroups = array_filter(array_map('trim', explode(',', $this->includeGroupsString)));
+        $this->excludeGroupsString = $this->getHumhubSetting('excludeGroupsString') ?? '';
+        $this->excludeGroups = array_filter(array_map('trim', explode(',', $this->excludeGroupsString)));
         $this->activityIdField = $this->getHumhubSetting('activityIdField') ?? 'civicrm_network_id';
         $this->activityTypeId = $this->getHumhubSetting('activityTypeId') ?? 0;
         $this->retryOnMissingField = $this->getHumhubSetting('retryOnMissingField') ?? '';

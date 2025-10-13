@@ -1,6 +1,7 @@
 <?php
 namespace k7zz\humhub\civicrm\services;
 
+use humhub\modules\user\models\GroupUser;
 use humhub\modules\user\models\ProfileField;
 use humhub\modules\user\models\User;
 use humhub\modules\user\models\Profile;
@@ -532,24 +533,41 @@ class CiviCRMService
             $q->andWhere(['IN', "profile.{$this->settings->contactIdField}", $this->getEnabledContactIds()]);
         } else {
             $q->andWhere(['<>', "profile.{$this->settings->contactIdField}", 0]);
-            if ($this->settings->retryOnMissingField) {
-                SyncLog::info("Act only if field '{$this->settings->retryOnMissingField}'
-                
-                is empty.");
-                $q->andWhere([
-                    'or',
-                    ['IS', $this->settings->retryOnMissingField, null],
-                    ['=', $this->settings->retryOnMissingField, ''],
-                ]);
-            }
-            if ($this->settings->limit > 0) {
-                SyncLog::info("Limiting user fetch to {$this->settings->limit} users.");
-                $q->limit($this->settings->limit);
-            }
-            if ($this->settings->offset > 0) {
-                SyncLog::info("Applying offset of {$this->settings->offset} users.");
-                $q->offset($this->settings->offset);
-            }
+        }
+        if ($this->settings->retryOnMissingField) {
+            SyncLog::info("Act only if field '{$this->settings->retryOnMissingField}' is empty.");
+            $q->andWhere([
+                'or',
+                ['IS', $this->settings->retryOnMissingField, null],
+                ['=', $this->settings->retryOnMissingField, ''],
+            ]);
+        }
+        if ($this->settings->limit > 0) {
+            SyncLog::info("Limiting user fetch to {$this->settings->limit} users.");
+            $q->limit($this->settings->limit);
+        }
+        if ($this->settings->offset > 0) {
+            SyncLog::info("Applying offset of {$this->settings->offset} users.");
+            $q->offset($this->settings->offset);
+        }
+        if ($this->settings->includeGroups) {
+            $q->andWhere([
+                'IN',
+                'id',
+                GroupUser::find()
+                    ->select('user_id')
+                    ->where(['group_id' => $this->settings->includeGroups])
+            ]);
+        }
+
+        if ($this->settings->excludeGroups) {
+            $q->andWhere([
+                'NOT IN',
+                'id',
+                GroupUser::find()
+                    ->select('user_id')
+                    ->where(['group_id' => $this->settings->excludeGroups])
+            ]);
         }
         return $q
             ->all();

@@ -1,9 +1,16 @@
 <?php
 
 use humhub\libs\Html;
+use humhub\modules\user\models\Group;
 use k7zz\humhub\civicrm\Module;
+use kartik\widgets\Select2;
 use yii\bootstrap\ActiveForm;
 
+$groups = Group::find()
+    ->select(['name', 'id'])
+    ->orderBy(['name' => SORT_ASC])
+    ->indexBy('id')
+    ->column();
 ?>
 
 <div class="panel panel-default">
@@ -64,6 +71,28 @@ use yii\bootstrap\ActiveForm;
                     <?= $form->field($model, 'strictDisable')
                         ->checkbox()
                         ->hint(Yii::t('CivicrmModule.config', 'Disable users without CiviCRM activity (Network profile).')); ?>
+
+                    <?= $form->field($model, 'includeGroups')->widget(Select2::class, [
+                        'data' => $groups,
+                        'options' => [
+                            'placeholder' => Yii::t('CivicrmModule.config', 'Select groups to include...'),
+                            'multiple' => true,
+                        ],
+                        'pluginOptions' => [
+                            'allowClear' => true,
+                        ],
+                    ])->hint(Yii::t('CivicrmModule.config', 'If set, only users from these groups will be synchronized.')); ?>
+
+                    <?= $form->field($model, 'excludeGroups')->widget(Select2::class, [
+                        'data' => $groups,
+                        'options' => [
+                            'placeholder' => Yii::t('CivicrmModule.config', 'Select groups to exclude...'),
+                            'multiple' => true,
+                        ],
+                        'pluginOptions' => [
+                            'allowClear' => true,
+                        ],
+                    ])->hint(Yii::t('CivicrmModule.config', 'If set, users from these groups will be excluded from synchronization.')); ?>
 
                     <?= $form->field($model, 'retryOnMissingField')
                         ->textInput(options: ['placeholder' => 'field_name, e.g. profile.street'])

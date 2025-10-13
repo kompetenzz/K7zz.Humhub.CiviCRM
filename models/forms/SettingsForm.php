@@ -1,6 +1,8 @@
 <?php
 namespace k7zz\humhub\civicrm\models\forms;
 
+use humhub\modules\queue\driver\Sync;
+use k7zz\humhub\civicrm\components\SyncLog;
 use k7zz\humhub\civicrm\models\CiviCRMSettings;
 use Yii;
 
@@ -21,6 +23,8 @@ class SettingsForm extends CiviCRMSettings
             [['activityTypeId', 'limit', 'offset'], 'integer'],
             [['restrictToContactIds'], 'string'],
             [['restrictToContactIds'], 'validateStringList', 'params' => ['type' => 'numeric']],
+            [['includeGroups', 'excludeGroups'], 'each', 'rule' => ['integer']],
+            [['includeGroups', 'excludeGroups'], 'safe'],
             [['fieldMapping'], 'string'],
             [['fieldMapping'], 'validateJson'],
             [['fieldMapping'], 'default', 'value' => '{}'],
@@ -46,6 +50,8 @@ class SettingsForm extends CiviCRMSettings
             'limit' => Yii::t('CivicrmModule.config', 'Limit'),
             'offset' => Yii::t('CivicrmModule.config', 'Offset'),
             'restrictToContactIds' => Yii::t('CivicrmModule.config', 'Restrict running to specified contacts. Use any non numeric as delimiter'),
+            'includeGroups' => Yii::t('CivicrmModule.config', 'Include only contacts from these groups'),
+            'excludeGroups' => Yii::t('CivicrmModule.config', 'Exclude contacts from these groups'),
             'retryOnMissingField' => Yii::t('CivicrmModule.config', 'Field which has to be empty to include in run.'),
             'fieldMapping' => Yii::t('CivicrmModule.config', 'Field Mapping HumHub2CiviCRM (JSON)'),
             'contactCustomFieldGroups' => Yii::t('CivicrmModule.config', 'Contact Custom Fields Group names (comma separated)'),
@@ -74,11 +80,14 @@ class SettingsForm extends CiviCRMSettings
         $this->setHumhubSetting('limit', $this->limit);
         $this->setHumhubSetting('offset', $this->offset);
         $this->setHumhubSetting('restrictToContactIds', $this->restrictToContactIds);
+        $this->includeGroupsString = implode(',', $this->includeGroups);
+        $this->setHumhubSetting('includeGroupsString', $this->includeGroupsString);
+        $this->excludeGroupsString = implode(',', $this->excludeGroups);
+        $this->setHumhubSetting('excludeGroupsString', $this->excludeGroupsString);
         $this->setHumhubSetting('retryOnMissingField', $this->retryOnMissingField);
         $this->setHumhubSetting('fieldMapping', $this->fieldMapping);
         $this->setHumhubSetting('contactCustomFieldGroups', $this->contactCustomFieldGroups);
         $this->setHumhubSetting('activityCustomFieldGroups', $this->activityCustomFieldGroups);
-
         return true;
     }
 
