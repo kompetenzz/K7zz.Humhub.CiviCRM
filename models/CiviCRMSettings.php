@@ -30,9 +30,9 @@ class CiviCRMSettings extends Model
     public string $activityCustomFieldGroups = '';
 
     public string $includeGroupsString = '';
-    public array $includeGroups = [];
+    public $includeGroups = '';
     public string $excludeGroupsString = '';
-    public array $excludeGroups = [];
+    public $excludeGroups = '';
     public ?FieldMappingCollection $fieldMappings = null;
 
     public function __construct($humhubSettings = null)

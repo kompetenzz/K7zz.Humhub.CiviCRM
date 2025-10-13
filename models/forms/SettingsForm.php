@@ -79,10 +79,18 @@ class SettingsForm extends CiviCRMSettings
         $this->setHumhubSetting('dryRun', $this->dryRun);
         $this->setHumhubSetting('limit', $this->limit);
         $this->setHumhubSetting('offset', $this->offset);
+
         $this->setHumhubSetting('restrictToContactIds', $this->restrictToContactIds);
+        if (empty($this->includeGroups)) {
+            $this->includeGroups = [];
+        }
         $this->includeGroupsString = implode(',', $this->includeGroups);
         $this->setHumhubSetting('includeGroupsString', $this->includeGroupsString);
+        if (empty($this->excludeGroups)) {
+            $this->excludeGroups = [];
+        }
         $this->excludeGroupsString = implode(',', $this->excludeGroups);
+
         $this->setHumhubSetting('excludeGroupsString', $this->excludeGroupsString);
         $this->setHumhubSetting('retryOnMissingField', $this->retryOnMissingField);
         $this->setHumhubSetting('fieldMapping', $this->fieldMapping);

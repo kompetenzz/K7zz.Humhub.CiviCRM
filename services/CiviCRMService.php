@@ -87,6 +87,20 @@ class CiviCRMService
         return !empty($this->settings->restrictToContactIds);
     }
 
+    private function restrictToGroups(): bool
+    {
+        return $this->settings->includeGroups
+            && is_array($this->settings->includeGroups)
+            && count($this->settings->includeGroups) > 0;
+    }
+
+    private function excludeGroups(): bool
+    {
+        return $this->settings->excludeGroups
+            && is_array($this->settings->excludeGroups)
+            && count($this->settings->excludeGroups) > 0;
+    }
+
     private function getCustomFieldIncludes(string $entity): array
     {
         $includes = [];
@@ -550,23 +564,25 @@ class CiviCRMService
             SyncLog::info("Applying offset of {$this->settings->offset} users.");
             $q->offset($this->settings->offset);
         }
-        if ($this->settings->includeGroups) {
+        if ($this->restrictToGroups()) {
+            SyncLog::info("Restricting all actions to groups: " . json_encode($this->settings->includeGroups));
             $q->andWhere([
                 'IN',
                 'id',
                 GroupUser::find()
                     ->select('user_id')
-                    ->where(['group_id' => $this->settings->includeGroups])
+                    ->where(['IN', 'group_id', $this->settings->includeGroups])
             ]);
         }
 
-        if ($this->settings->excludeGroups) {
+        if ($this->excludeGroups()) {
+            SyncLog::info("Excluding users from groups: " . json_encode($this->settings->excludeGroups));
             $q->andWhere([
                 'NOT IN',
                 'id',
                 GroupUser::find()
                     ->select('user_id')
-                    ->where(['group_id' => $this->settings->excludeGroups])
+                    ->where(['IN', 'group_id', $this->settings->excludeGroups])
             ]);
         }
         return $q
