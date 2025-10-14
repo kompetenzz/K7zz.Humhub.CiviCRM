@@ -613,6 +613,11 @@ class CiviCRMService
             return;
         }
 
+        $user = $profile->getUser()->one();
+        if (!$this->mayBeSynced($user, $profile)) {
+            return;
+        }
+
         $contactId = $profile->{$this->settings->contactIdField} ?? null;
         if (!$contactId) {
             return;
@@ -624,7 +629,6 @@ class CiviCRMService
         }
         $activityId = $profile->{$this->settings->activityIdField} ?? null;
 
-        $user = $profile->getUser()->one();
         if ($this->isLocked($user)) {
             SyncLog::info("Skipping on-change sync for user {$user->id} ({$user->email}) - sync lock active.");
             return;
@@ -808,6 +812,49 @@ class CiviCRMService
         $percent = round($handled / $users * 100, 2);
         SyncLog::info("$prefix progress: {$handled}/{$users} ({$percent}%)");
         return $percent;
+    }
+
+    private function mayBeSynced(User $user, Profile $profile): bool
+    {
+        if ($this->restrictToGroups()) {
+            SyncLog::info("Check include groups: " . json_encode($this->settings->includeGroups));
+            if (
+                !$user->getGroups()
+                    ->where(['IN', 'id', $this->settings->includeGroups])
+                    ->exists()
+            ) {
+                SyncLog::info("User {$user->id} not in include groups.");
+                return false;
+            }
+        }
+
+        if ($this->excludeGroups()) {
+            SyncLog::info("Check exclude groups: " . json_encode($this->settings->excludeGroups));
+            if (
+                $user->getGroups()
+                    ->where(['IN', 'id', $this->settings->excludeGroups])
+                    ->exists()
+            ) {
+                SyncLog::info("User {$user->id} in exclude groups.");
+                return false;
+            }
+        }
+
+        if ($this->settings->retryOnMissingField) {
+            SyncLog::info("Checking if field '{$this->settings->retryOnMissingField}' is empty.");
+            if ($profile->{$this->settings->retryOnMissingField} !== null && $profile->{$this->settings->retryOnMissingField} !== '') {
+                SyncLog::info("Field '{$this->settings->retryOnMissingField}' is not empty.");
+                return false;
+            }
+        }
+        if ($this->restrictToContactIds()) {
+            SyncLog::info("Check if civicrm contact ID is in enabled list: " . json_encode($this->getEnabledContactIds()));
+            if (!in_array($profile->{$this->settings->contactIdField}, $this->getEnabledContactIds())) {
+                SyncLog::info("User {$user->id} has an invalid civicrm contact ID.");
+                return false;
+            }
+        }
+        return true;
     }
 
     public function syncUsers(string $from = self::SRC_BOTH, ?array $users = null): array
