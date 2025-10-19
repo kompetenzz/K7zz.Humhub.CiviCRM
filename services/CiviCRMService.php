@@ -32,6 +32,10 @@ class CiviCRMService
         'ActivityContact',
     ];
 
+    public const SOFT_DELETE_ENTITIES = [
+        'Contact',
+        'Activity',
+    ];
 
     private const API_VERSION = 'v4';
     private const API_PATH = '/civicrm/ajax/api4/';
@@ -150,10 +154,7 @@ class CiviCRMService
      */
     private function getEndpoint(string $entity, string $action): string
     {
-        if (strtolower($entity) === 'activitycontact') {
-            return 'ActivityContact/' . strtolower($action);
-        }
-        return ucFirst(strtolower("{$entity}/{$action}"));
+        return "{$entity}/{$action}";
     }
 
     private function getCacheKey(string $entity, string $action, array $params = []): string
@@ -210,14 +211,22 @@ class CiviCRMService
             return false;
         }
 
-        if (
-            $action === 'get'
-            && (!array_key_exists('select', $params)
-                || empty($params['select']))
-        ) {
-            $includes = $this->getCustomFieldIncludes($entity);
-            $params['select'] = array_merge(['*'], $includes);
+        if ($action === 'get') {
+            if (in_array($entity, self::SOFT_DELETE_ENTITIES)) {
+                if (!array_key_exists('where', $params)) {
+                    $params['where'] = [];
+                }
+                $params['where'][] = ['is_deleted', '=', FALSE];
+            }
+            if (
+                !array_key_exists('select', $params)
+                || empty($params['select'])
+            ) {
+                $includes = $this->getCustomFieldIncludes($entity);
+                $params['select'] = array_merge(['*'], $includes);
+            }
         }
+
         $isWrite = in_array($action, $this->writingCiviActions);
         if (!$isWrite) {
             $cached = $this->getFromCache($entity, $action, $params);
