@@ -15,6 +15,7 @@ class CiviCRMSettings extends Model
     public string $contactIdField = 'civicrm_contact_id';
     public string $activityIdField = 'civicrm_activity_id';
     public int $activityTypeId = 0;
+    public string $humhubUserIdCiviCRMField = '';
     public string $checksumField = 'civicrm_checksum';
     public bool $enableBaseSync = true;
     public bool $enableOnChangeSync = false;
@@ -68,6 +69,7 @@ class CiviCRMSettings extends Model
         $this->excludeGroups = array_filter(array_map('trim', explode(',', $this->excludeGroupsString)));
         $this->activityIdField = $this->getHumhubSetting('activityIdField') ?? 'civicrm_network_id';
         $this->activityTypeId = $this->getHumhubSetting('activityTypeId') ?? 0;
+        $this->humhubUserIdCiviCRMField = $this->getHumhubSetting('humhubUserIdCiviCRMField') ?? '';
         $this->retryOnMissingField = $this->getHumhubSetting('retryOnMissingField') ?? '';
         $this->fieldMapping = $this->getHumhubSetting('fieldMapping') ?? '{}';
         $this->fieldMappings = new FieldMappingCollection($this->fieldMapping);

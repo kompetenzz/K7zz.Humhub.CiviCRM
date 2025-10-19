@@ -23,12 +23,13 @@ class CiviCRMService
     public const HUMHUB_DATA_SRC_ACCOUNT = 'account';
 
     public const ALLOWED_CIVICRM_ENTITIES = [
-        'contact',
-        'email',
-        'phone',
-        'address',
-        'activity',
-        'website',
+        'Contact',
+        'Email',
+        'Phone',
+        'Address',
+        'Activity',
+        'Website',
+        'ActivityContact',
     ];
 
 
@@ -38,6 +39,9 @@ class CiviCRMService
         'Active' => 9
     ];
     private array $writingCiviActions = ['create', 'update', 'delete'];
+
+    private $apiCache = [];
+
     private HttpClient $httpClient;
     public CiviCRMSettings $settings;
     public function __construct($humhubSettings = null)
@@ -146,7 +150,41 @@ class CiviCRMService
      */
     private function getEndpoint(string $entity, string $action): string
     {
+        if (strtolower($entity) === 'activitycontact') {
+            return 'ActivityContact/' . strtolower($action);
+        }
         return ucFirst(strtolower("{$entity}/{$action}"));
+    }
+
+    private function getCacheKey(string $entity, string $action, array $params = []): string
+    {
+        return md5("{$entity}.{$action}:" . json_encode($params));
+    }
+
+    private function cache(string $entity, string $action, array $params = [], $response): void
+    {
+        $cacheKey = $this->getCacheKey($entity, $action, $params);
+        $this->apiCache[$cacheKey] = $response;
+    }
+
+    private function getFromCache(string $entity, string $action, array $params = []): mixed
+    {
+        $cacheKey = $this->getCacheKey($entity, $action, $params);
+        return $this->apiCache[$cacheKey] ?? null;
+    }
+
+    private function getApiResult($response)
+    {
+        return $response->data['values'] ?? $response->data;
+    }
+
+    private function getSanitizedEntityName(string $entity): string
+    {
+        $saneIdx = array_search(strtolower($entity), array_map('strtolower', self::ALLOWED_CIVICRM_ENTITIES));
+        if ($saneIdx === false) {
+            return '';
+        }
+        return self::ALLOWED_CIVICRM_ENTITIES[$saneIdx];
     }
 
     /**
@@ -160,14 +198,18 @@ class CiviCRMService
      * @param array $params
      * @return array | bool (array on read, true/false on write actions)
      */
-    private function call(string $entity, string $action, array $params = []): array|bool
+    private function callCiviCRM(string $entity, string $action, array $params = []): array|bool
     {
         if (!$this->isPrepared()) {
             $this->prepareAPI();
         }
-        if (!in_array(strtolower($entity), self::ALLOWED_CIVICRM_ENTITIES)) {
-            throw new \InvalidArgumentException("Entity '{$entity}' is not allowed.");
+
+        $entity = $this->getSanitizedEntityName($entity);
+        if (!$entity) {
+            SyncLog::error("Entity {$entity} is not allowed.");
+            return false;
         }
+
         if (
             $action === 'get'
             && (!array_key_exists('select', $params)
@@ -177,6 +219,13 @@ class CiviCRMService
             $params['select'] = array_merge(['*'], $includes);
         }
         $isWrite = in_array($action, $this->writingCiviActions);
+        if (!$isWrite) {
+            $cached = $this->getFromCache($entity, $action, $params);
+            if ($cached !== null) {
+                SyncLog::info("Using cached response for {$entity}.{$action} with params: " . json_encode($params));
+                return $this->getApiResult($cached);
+            }
+        }
         SyncLog::info("Calling CiviCRM API: {$entity}.{$action} with params: " . json_encode($params));
         $request = $this->httpClient
             ->createRequest()
@@ -197,7 +246,11 @@ class CiviCRMService
                                 | {$entity}.{$action} with params: " . json_encode($params));
                 return false; // Return false on error
             }
-            return $isWrite ? true : $response->data['values'] ?? $response->data; // Return the 'values' key if it exists
+            if ($isWrite) {
+                return true;
+            }
+            $this->cache($entity, $action, $params, $response);
+            return $this->getApiResult($response);
         }
         SyncLog::error("CiviCRM API call failed with status {$response->statusCode}: {$response->content}. \n
             | {$entity}.{$action} with params: " . json_encode($params));
@@ -213,7 +266,7 @@ class CiviCRMService
         $params['where'] = $where;
         $params['limit'] = $limit;
         $params['offset'] = $offset;
-        return $this->call($entity, 'get', $params);
+        return $this->callCiviCRM($entity, 'get', $params);
     }
 
     private function genChecksum(int $contactId): ?string
@@ -222,7 +275,7 @@ class CiviCRMService
             'contactId' => $contactId,
             'checkPermissions' => true
         ];
-        $result = $this->call('Contact', 'getChecksum', $params);
+        $result = $this->callCiviCRM('Contact', 'getChecksum', $params);
         return $result[0]['checksum'] ?? null; // Return the checksum or null if not found
     }
 
@@ -233,7 +286,7 @@ class CiviCRMService
             'checksum' => $checksum,
             'checkPermissions' => true
         ];
-        $result = $this->call('Contact', 'validateChecksum', $params);
+        $result = $this->callCiviCRM('Contact', 'validateChecksum', $params);
         return (bool) $result[0]['valid']; // Return the checksum or null if not found
     }
 
@@ -252,13 +305,13 @@ class CiviCRMService
         $params['where'] = [
             ['id', '=', $id]
         ];
-        return $this->call($entity, 'update', $params);
+        return $this->callCiviCRM($entity, 'update', $params);
     }
 
     public function create(string $entity, array $values = []): bool
     {
         $params['values'] = $values;
-        return $this->call($entity, 'create', $params);
+        return $this->callCiviCRM($entity, 'create', $params);
     }
 
     private function updateEntities(int $contactId, int $activityId, array $params): bool
@@ -314,7 +367,7 @@ class CiviCRMService
                 $params['where'][] = [$field, '=', $value];
             }
         }
-        $results = $this->call($entity, 'get', $params);
+        $results = $this->callCiviCRM($entity, 'get', $params);
         if (count($results) > 1) {
             Yii::error("Multiple sub-entities found for contact Id {$contactId} in entity {$entity}. Returning first result.");
         }
@@ -431,7 +484,7 @@ class CiviCRMService
                 'created_date' => 'DESC',
             ]
         ];
-        $activities = $this->call('activity', 'get', $params);
+        $activities = $this->callCiviCRM('activity', 'get', $params);
         if (count($activities) == 0) {
             SyncLog::warning("No activity found for contact Id {$contactId}.");
             return null;
@@ -476,6 +529,85 @@ class CiviCRMService
         return count($handled) > 0;
     }
 
+    private function getCiviContactByUserIdField(User $user): array|null
+    {
+        if (!$this->settings->humhubUserIdCiviCRMField) {
+            return null;
+        }
+        [$entity, $field] = explode('.', $this->settings->humhubUserIdCiviCRMField, 2);
+        $where = [$field, '=', $user->id];
+        switch (strtolower($entity)) {
+            case 'contact':
+                $results = $this->getContact($where, 1);
+                return $results[0] ?? null;
+            case 'activity':
+                $results = $this->getActivity($where);
+                if ($results === null || count($results) == 0) {
+                    return null;
+                }
+                return $this->getContactByActivities($user, $results);
+            default:
+                return null;
+        }
+    }
+
+    // Needed if civicrm contact id has changed in civicrm by merging/deduping
+    private function getContactByActivities(User $user, array $activities): array|null
+    {
+        $savedContactId = $user->profile->{$this->settings->contactIdField} ?? null;
+        if ($savedContactId) {
+            $contact = $this->singleContact($savedContactId);
+            if ($contact) {
+                SyncLog::info("getContactByActivities: Found contact by saved contact Id {$savedContactId}. No need for activity check for user {$user->id} ({$user->email}).");
+                return $contact;
+            }
+        }
+        $email = $user->email;
+        SyncLog::info("Searching contact by activities for user {$user->id} by email ({$email}).");
+        // Search through all activity contacts
+        $activityContactIds = [];
+        foreach ($activities as $activity) {
+            $cIds = $this->get('ActivityContact', [
+                'activity_id',
+                '=',
+                $activity['id']
+            ]);
+            $activityContactIds = array_merge($activityContactIds, array_column($cIds, 'contact_id'));
+        }
+        if (count($activityContactIds) == 0) {
+            SyncLog::error("No contact Ids found in activities for user {$user->id} ({$user->email}).");
+            return null;
+        }
+        $activityContactIds = array_values(array_unique($activityContactIds));
+
+        $emails = $this->getEmail(
+            [
+                [
+                    'contact_id',
+                    'IN',
+                    array_unique($activityContactIds)
+                ],
+                [
+                    'email',
+                    '=',
+                    $email
+                ]
+            ]
+        );
+        SyncLog::info("Found " . count($emails) . " email records matching user {$user->id} ({$user->email}) in activities.");
+        SyncLog::info("Email records: " . json_encode($emails));
+        if (count($emails) > 0) {
+            $contactId = $emails[0]['contact_id'];
+            $contact = $this->singleContact($contactId);
+            if ($contact) {
+                SyncLog::info("Found contact Id {$contactId} by activity Id {$activity['id']} for user {$user->id} ({$user->email}).");
+                return $contact;
+            }
+        }
+        SyncLog::error("No contact found by activities for user {$user->id} ({$user->email}).");
+        return null;
+    }
+
     /**
      * Summary of syncBase
      * Sync civicrm base data like checksum, activity id and enabled state.
@@ -491,7 +623,19 @@ class CiviCRMService
         }
 
         $civicrmContact = $this->singleContact($contactId);
+        $civiHasHumhubUserId = false;
         if (!$civicrmContact) {
+            if ($this->settings->humhubUserIdCiviCRMField) {
+                SyncLog::error("No CiviCRM contact found for Id {$contactId}. Maybe deleted or merged. Get by activity.");
+                $civicrmContact = $this->getCiviContactByUserIdField($user);
+                if ($civicrmContact) {
+                    $civiHasHumhubUserId = true;
+                    $contactId = $civicrmContact['id'];
+                    $profile->{$this->settings->contactIdField} = $contactId;
+                    $this->saveHumhub($user);
+                    SyncLog::info("Updated contact Id to {$contactId} for user {$user->id} ({$user->email}).");
+                }
+            }
             SyncLog::error("No CiviCRM contact found for Id {$contactId}. Skipping user {$user->id}.");
             return false;
         }
@@ -532,10 +676,34 @@ class CiviCRMService
             SyncLog::info("Disabling account because no activity in CiviCRM and strict module settings.");
             $save = true;
         }
+        if (!$civiHasHumhubUserId && $this->settings->humhubUserIdCiviCRMField) {
+            $this->setHumhubIdInCiviCRM($contactId, $civicrmContact, $user, $activity);
+        }
 
         $result = $save ? $this->saveHumhub($user) : true;
         SyncLog::info("End base syncing user {$user->id} ({$user->email}): " . ($result ? "success" : "failed"));
         return $result;
+    }
+
+    private function setHumhubIdInCiviCRM(int $contactId, array $civicrmContact, User $user, array $activity): void
+    {
+        [$entity, $field] = explode('.', $this->settings->humhubUserIdCiviCRMField, 2);
+        switch (strtolower($entity)) {
+            case 'contact':
+                $this->updateContact($contactId, [
+                    $field => $user->id
+                ]);
+                SyncLog::info("Set HumHub user Id {$user->id} in CiviCRM contact Id {$contactId} field {$field}.");
+                break;
+            case 'activity':
+                if ($activity) {
+                    $this->updateActivity($activity['id'], [
+                        $field => $user->id
+                    ]);
+                    SyncLog::info("Set HumHub user Id {$user->id} in CiviCRM activity Id {$activity['id']} field {$field}.");
+                }
+                break;
+        }
     }
 
     private function getConnectedUsers(): array
@@ -757,6 +925,10 @@ class CiviCRMService
                     }
                     break;
                 case self::SRC_CIVICRM:
+                    if ($this->isHumhubFieldReadOnly($mapping->humhubField)) {
+                        SyncLog::warning("Skip saving readonly humhub field '{$mapping->humhubField}' for user {$user->id}");
+                        break;
+                    }
                     if ($this->setHumhubValue($user, $mapping->humhubField, $civiValue)) {
                         SyncLog::info("Prepared HumHub field '{$mapping->humhubField}' for user {$user->id}");
                         $saveHumhub = true;
@@ -874,6 +1046,15 @@ class CiviCRMService
         return $handled;
     }
 
+    private function isHumhubFieldReadOnly(string $field): bool
+    {
+        [$dataSrc, $fieldName] = explode('.', $field);
+        return match ($dataSrc) {
+            self::HUMHUB_DATA_SRC_USER => true,
+            self::HUMHUB_DATA_SRC_ACCOUNT => in_array($fieldName, ['username', 'authclient', 'authclient_id']),
+            default => false,
+        };
+    }
     private function getHumhubValue($user, $field)
     {
         [$dataSrc, $fieldName] = explode('.', $field);
@@ -911,6 +1092,10 @@ class CiviCRMService
 
     private function setHumhubValue($user, $field, $value): bool
     {
+        if ($this->isHumhubFieldReadOnly($field)) {
+            SyncLog::info("Skip setting read-only HumHub field '{$field}' for user {$user->id}");
+            return false;
+        }
         [$dataSrc, $fieldName] = explode('.', $field);
         switch ($dataSrc) {
             case self::HUMHUB_DATA_SRC_USER:

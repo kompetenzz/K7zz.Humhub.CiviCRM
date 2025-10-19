@@ -58,6 +58,9 @@ $groups = Group::find()
                     <?= $form->field($model, 'activityTypeId')
                         ->textInput(options: ['placeholder' => '123456']); ?>
 
+                    <?= $form->field($model, 'humhubUserIdCiviCRMField')
+                        ->textInput(options: ['placeholder' => 'activity.CustomGroup.HumhubUserId'])
+                        ->hint(Yii::t('CivicrmModule.config', 'What custom field in CiviCRM does hold the HumHub User ID?')); ?>
                     <h3><?= Yii::t('CivicrmModule.config', 'Sync Settings') ?></h3>
                     <?= $form->field($model, 'enableBaseSync')
                         ->checkbox()

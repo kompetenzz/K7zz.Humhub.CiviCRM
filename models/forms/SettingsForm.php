@@ -19,6 +19,7 @@ class SettingsForm extends CiviCRMSettings
             ['retryOnMissingField', 'string', 'max' => 255],
             ['contactIdField', 'string', 'max' => 255],
             ['activityIdField', 'string', 'max' => 255],
+            ['humhubUserIdCiviCRMField', 'string', 'max' => 255],
             [['enableBaseSync', 'autoFullSync', 'enableOnChangeSync', 'dryRun', 'strictDisable'], 'boolean'],
             [['activityTypeId', 'limit', 'offset'], 'integer'],
             [['restrictToContactIds'], 'string'],
@@ -40,6 +41,7 @@ class SettingsForm extends CiviCRMSettings
             'secret' => Yii::t('CivicrmModule.config', 'CiviCRM API-Key Secret'),
             'contactIdField' => Yii::t('CivicrmModule.config', 'Profile filed holding user\'s civicrm contact Id'),
             'activityIdField' => Yii::t('CivicrmModule.config', 'Profile field holding user\'s civicrm activity Id'),
+            'humhubUserIdCiviCRMField' => Yii::t('CivicrmModule.config', 'CiviCRM field holding HumHub User ID'),
             'checksumField' => Yii::t('CivicrmModule.config', 'Profile field holding user\'s civicrm checksum'),
             'activityTypeId' => Yii::t('CivicrmModule.config', 'CiviCRM ActivityTypeId'),
             'strictDisable' => Yii::t('CivicrmModule.config', 'Disable users without CiviCRM activity.'),
@@ -71,6 +73,7 @@ class SettingsForm extends CiviCRMSettings
         $this->setHumhubSetting('contactIdField', $this->contactIdField);
         $this->setHumhubSetting('activityIdField', $this->activityIdField);
         $this->setHumhubSetting('activityTypeId', $this->activityTypeId);
+        $this->setHumhubSetting('humhubUserIdCiviCRMField', $this->humhubUserIdCiviCRMField);
         $this->setHumhubSetting('checksumField', $this->checksumField);
         $this->setHumhubSetting('enableBaseSync', $this->enableBaseSync);
         $this->setHumhubSetting('enableOnChangeSync', $this->enableOnChangeSync);
