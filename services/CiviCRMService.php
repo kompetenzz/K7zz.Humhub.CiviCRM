@@ -636,8 +636,10 @@ class CiviCRMService
                     SyncLog::info("Updated contact Id to {$contactId} for user {$user->id} ({$user->email}).");
                 }
             }
-            SyncLog::error("No CiviCRM contact found for Id {$contactId}. Skipping user {$user->id}.");
-            return false;
+            if (!$civicrmContact) {
+                SyncLog::error("No CiviCRM contact found for Id {$contactId}. Skipping base sync for user {$user->id} ({$user->email}).");
+                return false;
+            }
         }
 
         SyncLog::info(". . . . . . . . . . . .");

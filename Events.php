@@ -63,6 +63,8 @@ class Events
 
     public static function onCronDailyRun($event)
     {
+        $controller = $event->sender;
+        $controller->stdout("Running civicrm sync...\n");
         self::runDaily();
     }
 
