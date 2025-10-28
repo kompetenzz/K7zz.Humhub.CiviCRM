@@ -323,6 +323,30 @@ class CiviCRMService
         return $this->callCiviCRM($entity, 'create', $params);
     }
 
+    private function joinSubEntityParams(array $targetParams): array
+    {
+        $joined = [];
+        // Combine subentity calls with same params
+        foreach ($targetParams as $subEntity) {
+            if (!isset($joined[$subEntity['entity']])) {
+                $joined[$subEntity['entity']] = [];
+            }
+            $key = md5(json_encode($subEntity['params'] ?? []));
+            if (!isset($joined[$subEntity['entity']][$key])) {
+                $joined[$subEntity['entity']][$key] = [
+                    'entity' => $subEntity['entity'],
+                    'params' => $subEntity['params'] ?? []
+                ];
+            }
+            if (!isset($joined[$subEntity['entity']][$key]['fields'])) {
+                $joined[$subEntity['entity']][$key]['fields'] = [];
+            }
+            $joined[$subEntity['entity']][$key]['fields'][] = [
+                $subEntity['field'] => $subEntity['value']
+            ];
+        }
+        return $joined;
+    }
     private function updateEntities(int $contactId, int $activityId, array $params): bool
     {
         if (empty($params)) {
@@ -343,14 +367,17 @@ class CiviCRMService
                     $okay = $okay && $this->updateActivity($activityId, $targetParams);
                     break;
                 case 'subEntities':
-                    foreach ($targetParams as $subEntity) {
-                        $okay = $okay && $this->updateSubEntity(
-                            $subEntity['entity'],
-                            $contactId,
-                            $subEntity['field'],
-                            $subEntity['value'],
-                            $subEntity['params'] ?? null
-                        );
+                    // Join api calls w/ same parameters
+                    $joined = $this->joinSubEntityParams($targetParams);
+                    foreach ($joined as $subEntityName => $subEntityCalls) {
+                        foreach ($subEntityCalls as $key => $subEntity) {
+                            $okay = $okay && $this->updateSubEntity(
+                                $subEntity['entity'],
+                                $contactId,
+                                $subEntity['fields'],
+                                $subEntity['params'] ?? null
+                            );
+                        }
                     }
                     break;
                 default:
@@ -361,7 +388,28 @@ class CiviCRMService
         return $okay;
     }
 
+    private function searchSubEntityValue(string $entity, int $contactId, FieldMapping $mapping, $humhubValue): int
+    {
+        $subEntities = $this->getSubEntities($entity, $contactId);
+        foreach ($subEntities as $subEntity) {
+            if ($subEntity[$mapping->civiField] === $humhubValue) {
+                return $subEntity['id'];
+            }
+        }
+        return 0;
+    }
+
     private function getSubEntity(string $entity, int $contactId, ?array $where): array|null
+    {
+        SyncLog::debug("Fetching sub-entity {$entity} for contact Id {$contactId} with additional where: " . json_encode($where));
+        $subEntities = $this->getSubEntities($entity, $contactId, $where);
+        if (count($subEntities) > 1) {
+            Yii::error("Multiple sub-entities found for contact Id {$contactId} in entity {$entity}. Returning first result.");
+        }
+        return $subEntities[0] ?? null; // Return the first result or an empty
+    }
+
+    private function getSubEntities(string $entity, int $contactId, ?array $where = null): array|null
     {
         if (!$contactId) {
             throw new \InvalidArgumentException("Contact Id is required for fetching sub-entity.");
@@ -377,35 +425,27 @@ class CiviCRMService
             }
         }
         $results = $this->callCiviCRM($entity, 'get', $params);
-        if (count($results) > 1) {
-            Yii::error("Multiple sub-entities found for contact Id {$contactId} in entity {$entity}. Returning first result.");
-        }
-        return $results[0] ?? null; // Return the first result or an empty array if
+        return $results;
     }
 
     private function updateSubEntity(
         string $entity,
         int $contactId,
-        string $civicrmField,
-        mixed $value,
+        array $fields,
         ?array $additionalParams = null
     ): bool {
-        if (!$contactId || !$civicrmField) {
-            throw new \InvalidArgumentException("Contact Id and CiviCRM field are required for update.");
+        if (!$contactId || !$fields || empty($fields)) {
+            throw new \InvalidArgumentException("Contact Id and CiviCRM fields are required for update.");
         }
         // If exists, update sub-entity
         $subEntity = $this->getSubEntity($entity, $contactId, $additionalParams);
         if ($subEntity) {
-            return $this->update($entity, $subEntity['id'], [
-                $civicrmField => $value
-            ]);
+            return $this->update($entity, $subEntity['id'], $fields);
         }
 
         // If no sub-entity exists, create it
-        return $this->create($entity, array_merge([
-            'contact_id' => $contactId,
-            $civicrmField => $value
-        ], $additionalParams ?? []));
+        $fields['contact_id'] = $contactId;
+        return $this->create($entity, array_merge($fields, $additionalParams ?? []));
     }
 
     /**
@@ -794,10 +834,10 @@ class CiviCRMService
         if (!$this->mayBeSynced($user)) {
             return;
         }
-        SyncLog::debug("Start on-login syncing user {$user->id} ({$user->email})");
+        SyncLog::info("Start on-login syncing user {$user->id} ({$user->email})");
         ;
         $this->syncBase($user);
-        SyncLog::debug("End on-login syncing user {$user->id} ({$user->email})");
+        SyncLog::info("End on-login syncing user {$user->id} ({$user->email})");
     }
 
     public function onChange(string $eventSrc, Profile $profile, array $valuesBeforeChange): void
@@ -813,6 +853,7 @@ class CiviCRMService
         if (!$this->mayBeSynced($user, $profile)) {
             return;
         }
+        SyncLog::info("Starting On-change sync for user {$user->id} ({$user->email}) from source {$eventSrc}");
 
         $contactId = $profile->{$this->settings->contactIdField} ?? null;
         if (!$contactId) {
@@ -861,6 +902,15 @@ class CiviCRMService
             SyncLog::debug("Processing mapping for HumHub field '{$mapping->humhubField}' to CiviCRM field '{$mapping->civiField}'");
             $humhubValue = $this->getHumhubValue($user, $mapping->humhubField);
 
+            // For sub-entities, we need to check if the value exists in other locations to avoid duplicates
+            if ($mapping->isSubEntity()) {
+                $existingSubEntityId = $this->searchSubEntityValue($mapping->civiEntity, $contactId, $mapping, $humhubValue);
+                if ($existingSubEntityId) {
+                    SyncLog::debug("Sub-entity '{$mapping->civiEntity}' with field '{$mapping->civiField}' and value '" . json_encode($humhubValue) . "' already exists for contact {$contactId} as Id {$existingSubEntityId}. Skipping.");
+                    continue; // Skip existing sub-entity values
+                }
+            }
+
             if ($this->buildCiviCRMUpdateParams($civiCRMUpdateParams, $mapping, $humhubValue)) {
                 SyncLog::debug("Params prepared for CiviCRM field '{$mapping->civiField}' for contact {$contactId}");
             } else {
@@ -870,14 +920,14 @@ class CiviCRMService
         if (!empty($civiCRMUpdateParams))
             $this->updateEntities($contactId, $activityId, $civiCRMUpdateParams);
 
-        SyncLog::debug("On-change sync for user {$user->id} ({$user->email}) from source {$eventSrc}");
+        SyncLog::info(msg: "Ending On-change sync for user {$user->id} ({$user->email}) from source {$eventSrc}");
     }
 
     public function buildCiviCRMUpdateParams(array &$params, FieldMapping $mapping, mixed $value): bool
     {
-        // Do not gather fields for sub entities
         // This is used for fields like phones, emails, etc. where the entity is not the main entity
         // but a sub-entity like phone, email, etc.
+        // So gather by sub-entity and it's params
         if ($mapping->isSubEntity()) {
             if (!$mapping->civiEntity || !$mapping->civiField) {
                 Yii::error("Invalid CiviCRM field definition for {$mapping->humhubField}, missing entity and/or field keys: " . json_encode($mapping));
@@ -911,7 +961,7 @@ class CiviCRMService
             return true; // No contact Id, nothing to sync
         }
         if (!$this->mayBeSynced($user)) {
-            SyncLog::info("User {$user->id} ({$user->email}) is not eligible for syncing according to group/contact restrictions.");
+            SyncLog::debug("User {$user->id} ({$user->email}) is not eligible for syncing according to group/contact restrictions.");
             return true;
         }
         $civicrmContact = $this->singleContact($contactId);
@@ -940,7 +990,7 @@ class CiviCRMService
             // Update humhub from civicrm
             $humhubValue = $this->getHumhubValue($user, $mapping->humhubField);
             $humhubValueStr = json_encode($humhubValue);
-            $civiValue = $this->getCiviCRMValue($civicrmContact, $activity, $mapping);
+            $civiValue = $this->getCiviCRMValue($civicrmContact, $activity, $mapping, $humhubValue);
             $civiValueStr = json_encode($civiValue);
 
             $changed = $humhubValue != $civiValue;
@@ -1158,7 +1208,7 @@ class CiviCRMService
         }
     }
 
-    public function getCiviCRMValue(array $civicrmContact, array $activity, FieldMapping $mapping)
+    public function getCiviCRMValue(array $civicrmContact, array $activity, FieldMapping $mapping, $humhubValue)
     {
         if (!$civicrmContact || empty($mapping->civiField)) {
             return null;
@@ -1173,6 +1223,13 @@ class CiviCRMService
                 Yii::error("Invalid CiviCRM field definition for {$mapping->humhubField}, missing entity key: " . json_encode($mapping));
                 return null; // Invalid definition
             }
+            // Detect if value is stored in civicrm subentity with another location type
+            $locationIdOfValue = $this->searchSubEntityValue($mapping->civiEntity, $civicrmContact['id'], $mapping, $humhubValue);
+            if ($locationIdOfValue > 0) {
+                SyncLog::debug("Found matching sub-entity value for '{$mapping->civiField}' in siblings entity '{$mapping->civiEntity}' with Id {$locationIdOfValue}.");
+                return $humhubValue;
+            }
+            // If not check default location type for changes
             $subEntity = $this->getSubEntity($mapping->civiEntity, $civicrmContact['id'], $mapping->params);
             return $subEntity[$mapping->civiField] ?? null;
         }

@@ -34,11 +34,15 @@ class Module extends BaseModule
 
         $uid = Yii::$app->user?->identity->username ?? 'console';
         $prefix = $uid;
+        $levels = ['error', 'warning', 'info'];
+        if (YII_DEBUG) {
+            $levels[] = 'trace';
+        }
 
         $target = new FileTarget([
             'logFile' => self::getLogFilePath(),
             'categories' => [SyncLog::LOG_CATEGORY_SYNC],
-            'levels' => ['error', 'warning', 'info'], // bei Bedarf 'trace' ergänzen
+            'levels' => $levels,
             'logVars' => [],                          // $_SERVER etc. weglassen
             'maxFileSize' => 1024,                   // 1 MB
             'maxLogFiles' => 20,                      // Rotation
