@@ -12,6 +12,7 @@ return [
     'events' => [
         ['class' => Profile::class, 'event' => Profile::EVENT_AFTER_UPDATE, 'callback' => [Events::class, 'onProfileAfterUpdate']],
         ['class' => User::class, 'event' => User::EVENT_AFTER_UPDATE, 'callback' => [Events::class, 'onUserAfterUpdate']],
+        ['class' => \yii\web\User::class, 'event' => \yii\web\User::EVENT_AFTER_LOGIN, 'callback' => [Events::class, 'onUserAfterLogin']],
         ['class' => CronController::class, 'event' => CronController::EVENT_ON_DAILY_RUN, 'callback' => [Events::class, 'onCronDailyRun']],
     ],
 ];

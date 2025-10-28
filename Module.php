@@ -54,4 +54,5 @@ class Module extends BaseModule
     {
         return Yii::getAlias('@runtime/logs/' . SyncLog::LOG_CATEGORY_SYNC . '.log');
     }
+
 }

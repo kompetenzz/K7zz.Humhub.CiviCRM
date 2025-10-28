@@ -20,7 +20,7 @@ class SettingsForm extends CiviCRMSettings
             ['contactIdField', 'string', 'max' => 255],
             ['activityIdField', 'string', 'max' => 255],
             ['humhubUserIdCiviCRMField', 'string', 'max' => 255],
-            [['enableBaseSync', 'autoFullSync', 'enableOnChangeSync', 'dryRun', 'strictDisable'], 'boolean'],
+            [['enableBaseSync', 'autoFullSync', 'enableOnChangeSync', 'enableOnLoginSync', 'dryRun', 'strictDisable'], 'boolean'],
             [['activityTypeId', 'limit', 'offset'], 'integer'],
             [['restrictToContactIds'], 'string'],
             [['restrictToContactIds'], 'validateStringList', 'params' => ['type' => 'numeric']],
@@ -77,6 +77,7 @@ class SettingsForm extends CiviCRMSettings
         $this->setHumhubSetting('checksumField', $this->checksumField);
         $this->setHumhubSetting('enableBaseSync', $this->enableBaseSync);
         $this->setHumhubSetting('enableOnChangeSync', $this->enableOnChangeSync);
+        $this->setHumhubSetting('enableOnLoginSync', $this->enableOnLoginSync);
         $this->setHumhubSetting('strictDisable', $this->strictDisable);
         $this->setHumhubSetting('autoFullSync', $this->autoFullSync);
         $this->setHumhubSetting('dryRun', $this->dryRun);

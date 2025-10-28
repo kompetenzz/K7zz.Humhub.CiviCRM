@@ -68,6 +68,9 @@ $groups = Group::find()
                     <?= $form->field($model, 'enableOnChangeSync')
                         ->checkbox()
                         ->hint(Yii::t('CivicrmModule.config', 'Enable direct synchronization of profile changes to CiviCRM.')); ?>
+                    <?= $form->field($model, 'enableOnLoginSync')
+                        ->checkbox()
+                        ->hint(Yii::t('CivicrmModule.config', 'Enable synchronization of profile data on user login.')); ?>
                     <?= $form->field($model, 'autoFullSync')
                         ->checkbox()
                         ->hint(Yii::t('CivicrmModule.config', 'Enable automatic scheduled daily synchronization of profile data.')); ?>

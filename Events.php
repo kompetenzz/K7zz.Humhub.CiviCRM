@@ -23,6 +23,19 @@ class Events
         self::$initialized = true;
     }
 
+    public static function onUserAfterLogin($event)
+    {
+        $user = $event->sender->identity;
+        if ($user instanceof User === false) {
+            return;
+        }
+        self::init(); // Ensure the service is initialized
+        if (!self::$civiCRMService->settings->enableOnLoginSync) {
+            return;
+        }
+        self::$civiCRMService->onLogin($user);
+    }
+
     /**
      * @param \yii\db\AfterSaveEvent $event
      */

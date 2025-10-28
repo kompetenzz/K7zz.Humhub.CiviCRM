@@ -231,11 +231,11 @@ class CiviCRMService
         if (!$isWrite) {
             $cached = $this->getFromCache($entity, $action, $params);
             if ($cached !== null) {
-                SyncLog::info("Using cached response for {$entity}.{$action} with params: " . json_encode($params));
+                SyncLog::debug("Using cached response for {$entity}.{$action} with params: " . json_encode($params));
                 return $this->getApiResult($cached);
             }
         }
-        SyncLog::info("Calling CiviCRM API: {$entity}.{$action} with params: " . json_encode($params));
+        SyncLog::debug("Calling CiviCRM API: {$entity}.{$action} with params: " . json_encode($params));
         $request = $this->httpClient
             ->createRequest()
             ->setMethod('POST')
@@ -244,7 +244,7 @@ class CiviCRMService
                 'params' => json_encode($params)
             ]);
         if ($this->dryRun() && $isWrite) {
-            SyncLog::info("Dry run enabled - skipping {$entity}.{$action} with params: " . json_encode($params));
+            SyncLog::warning("Dry run enabled - skipping {$entity}.{$action} with params: " . json_encode($params));
             return true; // Return an empty array as a placeholder
         }
         $response = $request
@@ -502,7 +502,7 @@ class CiviCRMService
             foreach ($activities as $activity) {
                 SyncLog::warning("Multiple activities found for contact Id {$contactId}");
                 if (in_array($activity['status_id'], $this->allowedActivityStati)) {
-                    SyncLog::info("Selecting activity Id {$activity['id']} by status {$activity['status_id']}");
+                    SyncLog::debug("Selecting activity Id {$activity['id']} by status {$activity['status_id']}");
                     return $activity;
                 }
                 SyncLog::warning("No activity in allowed stati. Taking first one…");
@@ -523,10 +523,10 @@ class CiviCRMService
     {
         $users = $this->getConnectedUsers();
         if (!count($users)) {
-            SyncLog::info("No connected CiviCRM users match your criteria.");
+            SyncLog::warning("No connected CiviCRM users match your criteria.");
             return true;
         }
-        SyncLog::info("Syncing " . count($users) . " connected CiviCRM users.");
+        SyncLog::debug("Syncing " . count($users) . " connected CiviCRM users.");
         $handled = [];
         if ($this->settings->enableBaseSync) {
             $handled = $this->syncBases($users);
@@ -567,12 +567,12 @@ class CiviCRMService
         if ($savedContactId) {
             $contact = $this->singleContact($savedContactId);
             if ($contact) {
-                SyncLog::info("getContactByActivities: Found contact by saved contact Id {$savedContactId}. No need for activity check for user {$user->id} ({$user->email}).");
+                SyncLog::debug("getContactByActivities: Found contact by saved contact Id {$savedContactId}. No need for activity check for user {$user->id} ({$user->email}).");
                 return $contact;
             }
         }
         $email = $user->email;
-        SyncLog::info("Searching contact by activities for user {$user->id} by email ({$email}).");
+        SyncLog::debug("Searching contact by activities for user {$user->id} by email ({$email}).");
         // Search through all activity contacts
         $activityContactIds = [];
         foreach ($activities as $activity) {
@@ -603,13 +603,13 @@ class CiviCRMService
                 ]
             ]
         );
-        SyncLog::info("Found " . count($emails) . " email records matching user {$user->id} ({$user->email}) in activities.");
-        SyncLog::info("Email records: " . json_encode($emails));
+        SyncLog::debug("Found " . count($emails) . " email records matching user {$user->id} ({$user->email}) in activities.");
+        SyncLog::debug("Email records: " . json_encode($emails));
         if (count($emails) > 0) {
             $contactId = $emails[0]['contact_id'];
             $contact = $this->singleContact($contactId);
             if ($contact) {
-                SyncLog::info("Found contact Id {$contactId} by activity Id {$activity['id']} for user {$user->id} ({$user->email}).");
+                SyncLog::debug("Found contact Id {$contactId} by activity Id {$activity['id']} for user {$user->id} ({$user->email}).");
                 return $contact;
             }
         }
@@ -630,6 +630,10 @@ class CiviCRMService
         if (!$contactId) {
             return true; // No contact Id, nothing to sync
         }
+        if (!$this->mayBeSynced($user)) {
+            SyncLog::info("User {$user->id} ({$user->email}) is not eligible for syncing according to group/contact restrictions.");
+            return true;
+        }
 
         $civicrmContact = $this->singleContact($contactId);
         $civiHasHumhubUserId = false;
@@ -642,7 +646,7 @@ class CiviCRMService
                     $contactId = $civicrmContact['id'];
                     $profile->{$this->settings->contactIdField} = $contactId;
                     $this->saveHumhub($user);
-                    SyncLog::info("Updated contact Id to {$contactId} for user {$user->id} ({$user->email}).");
+                    SyncLog::info("{$user->id} Updated contact Id to {$contactId} for user {$user->id} ({$user->email}).");
                 }
             }
             if (!$civicrmContact) {
@@ -651,8 +655,8 @@ class CiviCRMService
             }
         }
 
-        SyncLog::info(". . . . . . . . . . . .");
-        SyncLog::info("Start base syncing user {$user->id} ({$user->email}) w/ CiviCRM contact {$contactId}.");
+        SyncLog::debug(". . . . . . . . . . . .");
+        SyncLog::debug("Start base syncing user {$user->id} ({$user->email}) w/ CiviCRM contact {$contactId}.");
         $save = false;
 
         // Renew checksum
@@ -661,7 +665,7 @@ class CiviCRMService
             if ($checksum && $profile->{$this->settings->checksumField} !== $checksum) {
                 $profile->{$this->settings->checksumField} = $checksum;
                 $save = true;
-                SyncLog::info("Updated checksum (CiviCRM Contact Id {$contactId}).");
+                SyncLog::info("{$user->id} Updated checksum (CiviCRM Contact Id {$contactId}).");
             }
         }
 
@@ -669,22 +673,22 @@ class CiviCRMService
         $activity = $this->getActivityFromContact($contactId);
         $activityId = $activity['id'] ?? null;
         if ($activityId) {
-            SyncLog::info("Found activity Id {$activityId} for contact Id {$contactId}.");
+            SyncLog::debug("Found activity Id {$activityId} for contact Id {$contactId}.");
             if ($profile->{$this->settings->activityIdField} !== $activityId) {
                 $profile->{$this->settings->activityIdField} = $activityId;
-                SyncLog::info("Updated activity to Id {$activityId}.");
+                SyncLog::debug("Updated activity to Id {$activityId}.");
                 $save = true;
             }
             $profileEnabled = $this->isProfileEnabled($activity);
             $userEnabled = $user->status === User::STATUS_ENABLED;
             if ($userEnabled !== $profileEnabled) {
                 $user->status = $this->isProfileEnabled($activity) ? User::STATUS_ENABLED : User::STATUS_DISABLED;
-                SyncLog::info("Adjusted account status to {$user->status}.");
+                SyncLog::warning("Adjusted account status to {$user->status}.");
                 $save = true;
             }
         } else if ($this->settings->strictDisable) {
             $user->status = User::STATUS_DISABLED;
-            SyncLog::info("Disabling account because no activity in CiviCRM and strict module settings.");
+            SyncLog::warning("Disabling account because no activity in CiviCRM and strict module settings.");
             $save = true;
         }
         if (!$civiHasHumhubUserId && $this->settings->humhubUserIdCiviCRMField) {
@@ -692,7 +696,7 @@ class CiviCRMService
         }
 
         $result = $save ? $this->saveHumhub($user) : true;
-        SyncLog::info("End base syncing user {$user->id} ({$user->email}): " . ($result ? "success" : "failed"));
+        SyncLog::debug("End base syncing user {$user->id} ({$user->email}): " . ($result ? "success" : "failed"));
         return $result;
     }
 
@@ -704,14 +708,14 @@ class CiviCRMService
                 $this->updateContact($contactId, [
                     $field => $user->id
                 ]);
-                SyncLog::info("Set HumHub user Id {$user->id} in CiviCRM contact Id {$contactId} field {$field}.");
+                SyncLog::debug("Set HumHub user Id {$user->id} in CiviCRM contact Id {$contactId} field {$field}.");
                 break;
             case 'activity':
                 if ($activity) {
                     $this->updateActivity($activity['id'], [
                         $field => $user->id
                     ]);
-                    SyncLog::info("Set HumHub user Id {$user->id} in CiviCRM activity Id {$activity['id']} field {$field}.");
+                    SyncLog::debug("Set HumHub user Id {$user->id} in CiviCRM activity Id {$activity['id']} field {$field}.");
                 }
                 break;
         }
@@ -722,25 +726,25 @@ class CiviCRMService
         $q = User::find()
             ->joinWith('profile');
         if ($this->restrictToContactIds()) {
-            SyncLog::info("Restricting all actions to contact IDs: " . json_encode($this->getEnabledContactIds()));
+            SyncLog::warning("Restricting all actions to contact IDs: " . json_encode($this->getEnabledContactIds()));
             $q->andWhere(['IN', "profile.{$this->settings->contactIdField}", $this->getEnabledContactIds()]);
         } else {
             $q->andWhere(['<>', "profile.{$this->settings->contactIdField}", 0]);
         }
         if ($this->settings->retryOnMissingField) {
-            SyncLog::info("Act only if field '{$this->settings->retryOnMissingField}' is empty.");
-            $q->andWhere([
+            SyncLog::warning("Act only if field '{$this->settings->retryOnMissingField}' is empty.");
+            $q->andWhere(condition: [
                 'or',
                 ['IS', $this->settings->retryOnMissingField, null],
                 ['=', $this->settings->retryOnMissingField, ''],
             ]);
         }
         if ($this->settings->limit > 0) {
-            SyncLog::info("Limiting user fetch to {$this->settings->limit} users.");
+            SyncLog::warning("Limiting user fetch to {$this->settings->limit} users.");
             $q->limit($this->settings->limit);
         }
         if ($this->settings->offset > 0) {
-            SyncLog::info("Applying offset of {$this->settings->offset} users.");
+            SyncLog::warning("Applying offset of {$this->settings->offset} users.");
             $q->offset($this->settings->offset);
         }
         if ($this->restrictToGroups()) {
@@ -777,10 +781,23 @@ class CiviCRMService
             if (!$this->syncBase($user))
                 continue;
             $handled[] = $user;
-            $this->printPercent("Base syncing users", count($users), count($handled));
+            $this->printPercent("Base syncing users progress", count($users), count($handled));
         }
         SyncLog::info("End syncing base data from CiviCRM to HumHub for all connected users.");
         return $handled;
+    }
+    public function onLogin(User $user): void
+    {
+        if (!$this->settings->enableOnLoginSync) {
+            return;
+        }
+        if (!$this->mayBeSynced($user)) {
+            return;
+        }
+        SyncLog::debug("Start on-login syncing user {$user->id} ({$user->email})");
+        ;
+        $this->syncBase($user);
+        SyncLog::debug("End on-login syncing user {$user->id} ({$user->email})");
     }
 
     public function onChange(string $eventSrc, Profile $profile, array $valuesBeforeChange): void
@@ -809,11 +826,11 @@ class CiviCRMService
         $activityId = $profile->{$this->settings->activityIdField} ?? null;
 
         if ($this->isLocked($user)) {
-            SyncLog::info("Skipping on-change sync for user {$user->id} ({$user->email}) - sync lock active.");
+            SyncLog::debug("Skipping on-change sync for user {$user->id} ({$user->email}) - sync lock active.");
             return;
         }
-        SyncLog::info(". . . . . . . . . . . .");
-        SyncLog::info("Start on-change syncing user {$user->id} ({$user->email}) from source {$eventSrc}");
+        SyncLog::debug(". . . . . . . . . . . .");
+        SyncLog::debug("Start on-change syncing user {$user->id} ({$user->email}) from source {$eventSrc}");
 
         if ($this->settings->enableBaseSync) {
             $this->syncBase($user);
@@ -841,11 +858,11 @@ class CiviCRMService
                 continue; // Skip if the field was not changed
             }
 
-            SyncLog::info("Processing mapping for HumHub field '{$mapping->humhubField}' to CiviCRM field '{$mapping->civiField}'");
+            SyncLog::debug("Processing mapping for HumHub field '{$mapping->humhubField}' to CiviCRM field '{$mapping->civiField}'");
             $humhubValue = $this->getHumhubValue($user, $mapping->humhubField);
 
             if ($this->buildCiviCRMUpdateParams($civiCRMUpdateParams, $mapping, $humhubValue)) {
-                SyncLog::info("Params prepared for CiviCRM field '{$mapping->civiField}' for contact {$contactId}");
+                SyncLog::debug("Params prepared for CiviCRM field '{$mapping->civiField}' for contact {$contactId}");
             } else {
                 SyncLog::error("Failed prepare CiviCRM field params for '{$mapping->civiField}' of contact {$contactId}");
             }
@@ -853,7 +870,7 @@ class CiviCRMService
         if (!empty($civiCRMUpdateParams))
             $this->updateEntities($contactId, $activityId, $civiCRMUpdateParams);
 
-        SyncLog::info("On-change sync for user {$user->id} ({$user->email}) from source {$eventSrc}");
+        SyncLog::debug("On-change sync for user {$user->id} ({$user->email}) from source {$eventSrc}");
     }
 
     public function buildCiviCRMUpdateParams(array &$params, FieldMapping $mapping, mixed $value): bool
@@ -893,13 +910,17 @@ class CiviCRMService
         if (!$contactId) {
             return true; // No contact Id, nothing to sync
         }
+        if (!$this->mayBeSynced($user)) {
+            SyncLog::info("User {$user->id} ({$user->email}) is not eligible for syncing according to group/contact restrictions.");
+            return true;
+        }
         $civicrmContact = $this->singleContact($contactId);
         if (!$civicrmContact) {
             SyncLog::error("Can't sync: CiviCRM contact with Id {$contactId} not found for user {$user->id} ({$user->email}).");
             return false;
         }
-        SyncLog::info(". . . . . . . . . . . .");
-        SyncLog::info("Start syncing user {$user->id} ({$user->email}) from source {$from}");
+        SyncLog::debug(". . . . . . . . . . . .");
+        SyncLog::debug("Start syncing user {$user->id} ({$user->email}) from source {$from}");
         $activityId = $profile->{$this->settings->activityIdField} ?? null;
         if ($this->activityEnabled() && !$activityId) {
             SyncLog::error("Can't sync: No activity of type {$this->settings->activityTypeId} Id set up for user {$user->id} ({$user->email}).");
@@ -914,6 +935,7 @@ class CiviCRMService
         //   "profile.organisation_art": "activity.custom_641",
         $saveHumhub = false;
         $civiCRMUpdateParams = [];
+        $diff = [];
         foreach ($this->settings->fieldMappings->mappings as $mapping) {
             // Update humhub from civicrm
             $humhubValue = $this->getHumhubValue($user, $mapping->humhubField);
@@ -922,15 +944,19 @@ class CiviCRMService
             $civiValueStr = json_encode($civiValue);
 
             $changed = $humhubValue != $civiValue;
-            SyncLog::info("'{$mapping->humhubField}' | HumHub: '{$humhubValueStr}' == CiviCRM: '{$civiValueStr}'? " . ($changed ? "changed" : "no change"));
+            SyncLog::debug("'{$mapping->humhubField}' | HumHub: '{$humhubValueStr}' == CiviCRM: '{$civiValueStr}'? " . ($changed ? "changed" : "no change"));
             if (!$changed) {
                 continue; // No change needed
             }
+            $diff[$mapping->humhubField] = [
+                'humhub' => $humhubValue,
+                'civicrm' => $civiValue
+            ];
             switch ($from) {
                 case self::SRC_HUMHUB:
                 case self::SRC_BOTH:
                     if ($this->buildCiviCRMUpdateParams($civiCRMUpdateParams, $mapping, $humhubValue)) {
-                        SyncLog::info("Params prepared for CiviCRM field '{$mapping->civiField}' for contact {$contactId}");
+                        SyncLog::debug("Params prepared for CiviCRM field '{$mapping->civiField}' for contact {$contactId}");
                     } else {
                         SyncLog::error("Failed prepare CiviCRM field params for '{$mapping->civiField}' of contact {$contactId}");
                     }
@@ -941,7 +967,7 @@ class CiviCRMService
                         break;
                     }
                     if ($this->setHumhubValue($user, $mapping->humhubField, $civiValue)) {
-                        SyncLog::info("Prepared HumHub field '{$mapping->humhubField}' for user {$user->id}");
+                        SyncLog::debug("Prepared HumHub field '{$mapping->humhubField}' for user {$user->id}");
                         $saveHumhub = true;
                     } else {
                         SyncLog::error("Failed to update HumHub field '{$mapping->humhubField}' for user {$user->id}");
@@ -952,10 +978,17 @@ class CiviCRMService
                     break;
             }
         }
+        if (!empty($diff)) {
+            $diffStr = "           Humhub | CiviCRM\n";
+            foreach ($diff as $field => $values) {
+                $diffStr .= sprintf("  %-20s | %-20s\n", json_encode($values['humhub']), json_encode($values['civicrm']));
+            }
+            SyncLog::info("Diff for user {$user->id} from source {$from}: " . $diffStr);
+        }
         $result = $saveHumhub ? $this->saveHumhub($user) : true;
         $result = $result && (empty($civiCRMUpdateParams) || $this->updateEntities($contactId, $activityId, $civiCRMUpdateParams));
 
-        SyncLog::info("End syncing user {$user->id} from source {$from}: " . ($result ? "success" : "failed"));
+        SyncLog::debug("End syncing user {$user->id} from source {$from}: " . ($result ? "success" : "failed"));
         return $result;
     }
 
@@ -979,7 +1012,7 @@ class CiviCRMService
     private function saveHumhub(User $user): bool
     {
         if ($this->dryRun()) {
-            SyncLog::info("Dry run enabled - skipping save of user {$user->id}.");
+            SyncLog::warning("Dry run enabled - skipping save of user {$user->id}.");
             return true;
         }
 
@@ -993,47 +1026,49 @@ class CiviCRMService
     private function printPercent(string $prefix, int $users, int $handled): string
     {
         $percent = round($handled / $users * 100, 2);
-        SyncLog::info("$prefix progress: {$handled}/{$users} ({$percent}%)");
+        SyncLog::info("$prefix {$handled}/{$users} ({$percent}%)");
         return $percent;
     }
 
-    private function mayBeSynced(User $user, Profile $profile): bool
+    private function mayBeSynced(User $user, ?Profile $profile = null): bool
     {
+        $profile = $profile ?? $user->profile;
+
         if ($this->restrictToGroups()) {
-            SyncLog::info("Check include groups: " . json_encode($this->settings->includeGroups));
+            SyncLog::debug("Check include groups: " . json_encode($this->settings->includeGroups));
             if (
                 !$user->getGroups()
                     ->where(['IN', 'id', $this->settings->includeGroups])
                     ->exists()
             ) {
-                SyncLog::info("User {$user->id} not in include groups.");
+                SyncLog::debug("User {$user->id} not in include groups.");
                 return false;
             }
         }
 
         if ($this->excludeGroups()) {
-            SyncLog::info("Check exclude groups: " . json_encode($this->settings->excludeGroups));
+            SyncLog::debug("Check exclude groups: " . json_encode($this->settings->excludeGroups));
             if (
                 $user->getGroups()
                     ->where(['IN', 'id', $this->settings->excludeGroups])
                     ->exists()
             ) {
-                SyncLog::info("User {$user->id} in exclude groups.");
+                SyncLog::debug("User {$user->id} in exclude groups.");
                 return false;
             }
         }
 
         if ($this->settings->retryOnMissingField) {
-            SyncLog::info("Checking if field '{$this->settings->retryOnMissingField}' is empty.");
+            SyncLog::debug("Checking if field '{$this->settings->retryOnMissingField}' is empty.");
             if ($profile->{$this->settings->retryOnMissingField} !== null && $profile->{$this->settings->retryOnMissingField} !== '') {
-                SyncLog::info("Field '{$this->settings->retryOnMissingField}' is not empty.");
+                SyncLog::debug("Field '{$this->settings->retryOnMissingField}' is not empty.");
                 return false;
             }
         }
         if ($this->restrictToContactIds()) {
-            SyncLog::info("Check if civicrm contact ID is in enabled list: " . json_encode($this->getEnabledContactIds()));
+            SyncLog::debug("Check if civicrm contact ID is in enabled list: " . json_encode($this->getEnabledContactIds()));
             if (!in_array($profile->{$this->settings->contactIdField}, $this->getEnabledContactIds())) {
-                SyncLog::info("User {$user->id} has an invalid civicrm contact ID.");
+                SyncLog::debug("User {$user->id} has an invalid civicrm contact ID.");
                 return false;
             }
         }
@@ -1051,7 +1086,7 @@ class CiviCRMService
             if (!$this->syncUser($user, $from))
                 continue;
             $handled[] = $user;
-            $this->printPercent("Syncing users", count($users), count($handled));
+            $this->printPercent("Syncing users progress", count($users), count($handled));
         }
         SyncLog::info("End syncing all users from source {$from}");
         return $handled;
@@ -1104,7 +1139,7 @@ class CiviCRMService
     private function setHumhubValue($user, $field, $value): bool
     {
         if ($this->isHumhubFieldReadOnly($field)) {
-            SyncLog::info("Skip setting read-only HumHub field '{$field}' for user {$user->id}");
+            SyncLog::debug("Skip setting read-only HumHub field '{$field}' for user {$user->id}");
             return false;
         }
         [$dataSrc, $fieldName] = explode('.', $field);
