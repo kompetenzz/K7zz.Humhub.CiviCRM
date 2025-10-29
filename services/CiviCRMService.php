@@ -670,6 +670,7 @@ class CiviCRMService
         if (!$contactId) {
             return true; // No contact Id, nothing to sync
         }
+        SyncLog::info("Running civicrm base sync");
         if (!$this->mayBeSynced($user)) {
             SyncLog::info("User {$user->id} ({$user->email}) is not eligible for syncing according to group/contact restrictions.");
             return true;
@@ -686,17 +687,17 @@ class CiviCRMService
                     $contactId = $civicrmContact['id'];
                     $profile->{$this->settings->contactIdField} = $contactId;
                     $this->saveHumhub($user);
-                    SyncLog::info("{$user->id} Updated contact Id to {$contactId} for user {$user->id} ({$user->email}).");
+                    SyncLog::info("{$user->id} Updated CiviCRM Id to {$contactId} for user {$user->id} ({$user->email}).");
                 }
             }
             if (!$civicrmContact) {
                 SyncLog::error("No CiviCRM contact found for Id {$contactId}. Skipping base sync for user {$user->id} ({$user->email}).");
                 return false;
             }
+        } else {
+            SyncLog::info("Found valid CiviCRM id {$contactId} contact for user {$user->id} ({$user->email}).");
         }
 
-        SyncLog::debug(". . . . . . . . . . . .");
-        SyncLog::debug("Start base syncing user {$user->id} ({$user->email}) w/ CiviCRM contact {$contactId}.");
         $save = false;
 
         // Renew checksum
@@ -707,6 +708,8 @@ class CiviCRMService
                 $save = true;
                 SyncLog::info("{$user->id} Updated checksum (CiviCRM Contact Id {$contactId}).");
             }
+        } else {
+            SyncLog::info("Checksum valid for user {$user->id} ({$user->email}). No update needed.");
         }
 
         // Sync activity Id and account status
@@ -716,8 +719,10 @@ class CiviCRMService
             SyncLog::debug("Found activity Id {$activityId} for contact Id {$contactId}.");
             if ($profile->{$this->settings->activityIdField} !== $activityId) {
                 $profile->{$this->settings->activityIdField} = $activityId;
-                SyncLog::debug("Updated activity to Id {$activityId}.");
+                SyncLog::info("Updated civicrm activity to Id {$activityId}.");
                 $save = true;
+            } else {
+                SyncLog::info("Civicrm activity Id {$activityId} is up to date. No update needed.");
             }
             $profileEnabled = $this->isProfileEnabled($activity);
             $userEnabled = $user->status === User::STATUS_ENABLED;
@@ -835,7 +840,6 @@ class CiviCRMService
             return;
         }
         SyncLog::info("Start on-login syncing user {$user->id} ({$user->email})");
-        ;
         $this->syncBase($user);
         SyncLog::info("End on-login syncing user {$user->id} ({$user->email})");
     }
@@ -960,6 +964,7 @@ class CiviCRMService
         if (!$contactId) {
             return true; // No contact Id, nothing to sync
         }
+        SyncLog::info("Running civicrm user sync");
         if (!$this->mayBeSynced($user)) {
             SyncLog::debug("User {$user->id} ({$user->email}) is not eligible for syncing according to group/contact restrictions.");
             return true;
@@ -1038,7 +1043,7 @@ class CiviCRMService
         $result = $saveHumhub ? $this->saveHumhub($user) : true;
         $result = $result && (empty($civiCRMUpdateParams) || $this->updateEntities($contactId, $activityId, $civiCRMUpdateParams));
 
-        SyncLog::debug("End syncing user {$user->id} from source {$from}: " . ($result ? "success" : "failed"));
+        SyncLog::info("End syncing user {$user->id} from source {$from}: " . ($result ? "success" : "failed"));
         return $result;
     }
 
