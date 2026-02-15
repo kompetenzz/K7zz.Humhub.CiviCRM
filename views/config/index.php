@@ -4,7 +4,7 @@ use humhub\libs\Html;
 use humhub\modules\user\models\Group;
 use k7zz\humhub\civicrm\Module;
 use kartik\widgets\Select2;
-use yii\bootstrap\ActiveForm;
+use humhub\modules\ui\form\widgets\ActiveForm;
 
 $groups = Group::find()
     ->select(['name', 'id'])
@@ -13,8 +13,8 @@ $groups = Group::find()
     ->column();
 ?>
 
-<div class="panel panel-default">
-    <div class="panel-heading">
+<div class="card">
+    <div class="card-header">
 
         <h1><?= Yii::t('CivicrmModule.config', '<strong>CiviCRM</strong> Integration'); ?></h1>
 
@@ -29,9 +29,9 @@ $groups = Group::find()
         ) ?></p>
     </div>
 
-    <div class="panel-body">
+    <div class="card-body">
         <?php $form = ActiveForm::begin() ?>
-        <div class="panel-body">
+        <div class="card-body">
             <div class="row">
                 <div class="col-md-7">
                     <h3><?= Yii::t('CivicrmModule.config', 'API Settings') ?></h3>
@@ -144,19 +144,19 @@ $groups = Group::find()
                             <?= Yii::t('CivicrmModule.config', 'Clicking this actions will <b>save</b> settings!'); ?>
                         </p>
                         <div class="row">
-                            <div class="well col-md-6">
+                            <div class="border rounded p-3 col-md-6">
                                 <p>
                                     <?= Yii::t('CivicrmModule.config', 'You can manually trigger a sync from CiviCRM to HumHub.'); ?>
                                 </p>
-                                <button class="btn btn-primary pull-right" type="submit" name="force-sync"
+                                <button class="btn btn-primary float-end" type="submit" name="force-sync"
                                     value="civicrm"><?= Yii::t('CivicrmModule.config', 'Sync from CiviCRM') ?></button>
 
                             </div>
-                            <div class="well col-md-6">
+                            <div class="border rounded p-3 col-md-6">
                                 <p>
                                     <?= Yii::t('CivicrmModule.config', 'You can manually trigger a full sync as if it would run daily.'); ?>
                                 </p>
-                                <button class="btn btn-primary pull-right" type="submit" name="force-sync"
+                                <button class="btn btn-primary float-end" type="submit" name="force-sync"
                                     value="daily"><?= Yii::t('CivicrmModule.config', 'Run daily sync') ?></button>
 
                             </div>

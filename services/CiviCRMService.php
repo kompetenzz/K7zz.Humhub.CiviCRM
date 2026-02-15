@@ -185,7 +185,7 @@ class CiviCRMService
         return md5("{$entity}.{$action}:" . json_encode($params));
     }
 
-    private function cache(string $entity, string $action, array $params = [], $response): void
+    private function cache(string $entity, string $action, array $params = [], $response = null): void
     {
         $cacheKey = $this->getCacheKey($entity, $action, $params);
         $this->apiCache[$cacheKey] = $response;

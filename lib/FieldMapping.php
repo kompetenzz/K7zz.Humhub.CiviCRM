@@ -95,7 +95,7 @@ class FieldMapping
         return $this->getHumhubFieldSrc() . '.' . $bareFieldName;
     }
 
-    public function isFor(string $bareOrFullFieldName, string $src = null): bool
+    public function isFor(string $bareOrFullFieldName, ?string $src = null): bool
     {
         if ($this->humhubField === $bareOrFullFieldName)
             return true;
