@@ -86,8 +86,8 @@ class Events
         self::init(); // Ensure the service is initialized
         if (
             !$force &&
-            (!self::$civiCRMService->settings->enableBaseSync
-                || !self::$civiCRMService->settings->autoFullSync)
+            !self::$civiCRMService->settings->enableBaseSync
+            && !self::$civiCRMService->settings->autoFullSync
         ) {
             return null;
         }

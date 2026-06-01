@@ -45,7 +45,8 @@ class CiviCRMService
     ];
     private array $writingCiviActions = ['create', 'update', 'delete'];
 
-    private $apiCache = [];
+    private array $apiCache = [];
+    private array $profileFieldTypeCache = [];
 
     private HttpClient $httpClient;
     public CiviCRMSettings $settings;
@@ -197,6 +198,12 @@ class CiviCRMService
         return $this->apiCache[$cacheKey] ?? null;
     }
 
+    private function flushEntityCache(): void
+    {
+        // Cache keys are md5 hashes so we can't filter by entity name — flush all on any write.
+        $this->apiCache = [];
+    }
+
     private function getApiResult($response)
     {
         return $response->data['values'] ?? $response->data;
@@ -301,6 +308,7 @@ class CiviCRMService
                 return false; // Return false on error
             }
             if ($isWrite) {
+                $this->flushEntityCache();
                 return true;
             }
             $this->cache($entity, $action, $params, $response);
@@ -589,14 +597,14 @@ class CiviCRMService
             return null;
         }
         if (count($activities) > 1) {
+            SyncLog::warning("Multiple activities found for contact Id {$contactId} — picking first with allowed status.");
             foreach ($activities as $activity) {
-                SyncLog::warning("Multiple activities found for contact Id {$contactId}");
                 if (in_array($activity['status_id'], $this->allowedActivityStati)) {
                     SyncLog::debug("Selecting activity Id {$activity['id']} by status {$activity['status_id']}");
                     return $activity;
                 }
-                SyncLog::warning("No activity in allowed stati. Taking first one…");
             }
+            SyncLog::warning("No activity in allowed stati for contact Id {$contactId} — falling back to most recent.");
         }
         return $activities[0];
     }
@@ -895,7 +903,7 @@ class CiviCRMService
         }
     }
 
-    private function getConnectedUsers(): array
+    private function buildConnectedUsersQuery(): \yii\db\ActiveQuery
     {
         $q = User::find()
             ->joinWith('profile');
@@ -903,11 +911,14 @@ class CiviCRMService
             SyncLog::warning("Restricting all actions to contact IDs: " . json_encode($this->getEnabledContactIds()));
             $q->andWhere(['IN', "profile.{$this->settings->contactIdField}", $this->getEnabledContactIds()]);
         } else {
-            $q->andWhere(['<>', "profile.{$this->settings->contactIdField}", 0]);
+            $q->andWhere(['AND',
+                ['IS NOT', "profile.{$this->settings->contactIdField}", null],
+                ['<>', "profile.{$this->settings->contactIdField}", 0],
+            ]);
         }
         if ($this->settings->retryOnMissingField) {
             SyncLog::warning("Act only if field '{$this->settings->retryOnMissingField}' is empty.");
-            $q->andWhere(condition: [
+            $q->andWhere([
                 'or',
                 ['IS', $this->settings->retryOnMissingField, null],
                 ['=', $this->settings->retryOnMissingField, ''],
@@ -931,7 +942,6 @@ class CiviCRMService
                     ->where(['IN', 'group_id', $this->settings->includeGroups])
             ]);
         }
-
         if ($this->excludeGroups()) {
             SyncLog::info("Excluding users from groups: " . json_encode($this->settings->excludeGroups));
             $q->andWhere([
@@ -942,20 +952,38 @@ class CiviCRMService
                     ->where(['IN', 'group_id', $this->settings->excludeGroups])
             ]);
         }
-        return $q
-            ->all();
+        return $q;
+    }
+
+    private function getConnectedUsers(): array
+    {
+        return $this->buildConnectedUsersQuery()->all();
     }
 
     public function syncBases(?array $users = null): array
     {
-        $users = $users ?? $this->getConnectedUsers();
-        SyncLog::info("Start syncing base data from CiviCRM to HumHub for " . count($users) . " connected users.");
+        if ($users !== null) {
+            $total = count($users);
+            SyncLog::info("Start syncing base data from CiviCRM to HumHub for {$total} connected users.");
+            $handled = [];
+            foreach ($users as $user) {
+                if ($this->syncBase($user)) {
+                    $handled[] = $user;
+                    $this->printPercent("Base syncing users progress", $total, count($handled));
+                }
+            }
+            SyncLog::info("End syncing base data from CiviCRM to HumHub for all connected users.");
+            return $handled;
+        }
+
+        $total = $this->buildConnectedUsersQuery()->count();
+        SyncLog::info("Start syncing base data from CiviCRM to HumHub for {$total} connected users.");
         $handled = [];
-        foreach ($users as $user) {
-            if (!$this->syncBase($user))
-                continue;
-            $handled[] = $user;
-            $this->printPercent("Base syncing users progress", count($users), count($handled));
+        foreach ($this->buildConnectedUsersQuery()->each(100) as $user) {
+            if ($this->syncBase($user)) {
+                $handled[] = $user;
+                $this->printPercent("Base syncing users progress", $total, count($handled));
+            }
         }
         SyncLog::info("End syncing base data from CiviCRM to HumHub for all connected users.");
         return $handled;
@@ -1348,18 +1376,18 @@ class CiviCRMService
         }
     }
 
-    private function lockFor(User $user, int $seconds): void
+    private function lock(User $user, int $seconds = 30): bool
     {
-        Yii::$app->cache->set("civicrm-sync-block.$user->id", 1, $seconds);
+        // cache->add() is atomic: sets the key only if it does not already exist.
+        // Returns true if the lock was acquired, false if already held by another process.
+        return Yii::$app->cache->add("civicrm-sync-block.$user->id", 1, $seconds);
     }
-    private function lock(User $user): void
-    {
-        $this->lockFor($user, 30); // Default lock for 30 seconds
-    }
+
     private function isLocked(User $user): bool
     {
-        return Yii::$app->cache->get("civicrm-sync-block.$user->id") === 1;
+        return Yii::$app->cache->get("civicrm-sync-block.$user->id") !== false;
     }
+
     private function unlock(User $user): void
     {
         Yii::$app->cache->delete("civicrm-sync-block.$user->id");
@@ -1434,16 +1462,28 @@ class CiviCRMService
 
     public function syncUsers(string $from = self::SRC_BOTH, ?array $users = null): array
     {
-        // Logic to sync all users with CiviCRM
-        // This could involve fetching all users from the database and updating their CiviCRM records
-        $users = $users ?? $this->getConnectedUsers();
-        SyncLog::info("Start syncing " . count($users) . " users from source {$from}");
+        if ($users !== null) {
+            $total = count($users);
+            SyncLog::info("Start syncing {$total} users from source {$from}");
+            $handled = [];
+            foreach ($users as $user) {
+                if ($this->syncUser($user, $from)) {
+                    $handled[] = $user;
+                    $this->printPercent("Syncing users progress", $total, count($handled));
+                }
+            }
+            SyncLog::info("End syncing all users from source {$from}");
+            return $handled;
+        }
+
+        $total = $this->buildConnectedUsersQuery()->count();
+        SyncLog::info("Start syncing {$total} users from source {$from}");
         $handled = [];
-        foreach ($users as $user) {
-            if (!$this->syncUser($user, $from))
-                continue;
-            $handled[] = $user;
-            $this->printPercent("Syncing users progress", count($users), count($handled));
+        foreach ($this->buildConnectedUsersQuery()->each(100) as $user) {
+            if ($this->syncUser($user, $from)) {
+                $handled[] = $user;
+                $this->printPercent("Syncing users progress", $total, count($handled));
+            }
         }
         SyncLog::info("End syncing all users from source {$from}");
         return $handled;
@@ -1471,14 +1511,24 @@ class CiviCRMService
         if ($rawValue === null) {
             return null;
         }
-        $profileField = ProfileField::findOne(['internal_name' => $fieldName]);
-        if (!$profileField) {
-            return $rawValue; // No special handling needed
+        $fieldTypeClass = $this->getProfileFieldTypeClass($fieldName);
+        if ($fieldTypeClass === null) {
+            return $rawValue;
         }
-        return match ($profileField->field_type_class) {
+        return match ($fieldTypeClass) {
             'humhub\modules\user\models\fieldtype\CheckboxList' => $this->deserializeHumhubArray($rawValue),
             default => $rawValue,
         };
+    }
+
+    private function getProfileFieldTypeClass(string $fieldName): ?string
+    {
+        if (!array_key_exists($fieldName, $this->profileFieldTypeCache)) {
+            $profileField = ProfileField::findOne(['internal_name' => $fieldName]);
+            $this->profileFieldTypeCache[$fieldName] = $profileField ? $profileField->field_type_class : false;
+        }
+        $cached = $this->profileFieldTypeCache[$fieldName];
+        return $cached === false ? null : $cached;
     }
 
     private function deserializeHumhubArray(?string $value): array
