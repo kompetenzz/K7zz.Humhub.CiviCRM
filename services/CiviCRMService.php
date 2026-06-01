@@ -1032,7 +1032,11 @@ class CiviCRMService
         }
     }
 
-    public function onChange(string $eventSrc, Profile $profile, array $valuesBeforeChange): void
+    /**
+     * @param bool $skipBaseSync  Pass true from onUserAfterUpdate so syncBase is not
+     *                            called twice when profile and user are saved together.
+     */
+    public function onChange(string $eventSrc, Profile $profile, array $valuesBeforeChange, bool $skipBaseSync = false): void
     {
         if (!$this->settings->enableOnChangeSync) {
             return;
@@ -1087,8 +1091,9 @@ class CiviCRMService
             $activityId = $profile->{$this->settings->activityIdField} ?? null;
             $ctx->setActivityId($activityId);
 
-            // Run base sync if enabled
-            if ($this->settings->enableBaseSync) {
+            // Run base sync if enabled, but skip when called from onUserAfterUpdate
+            // to avoid a double syncBase when both user and profile are saved together.
+            if ($this->settings->enableBaseSync && !$skipBaseSync) {
                 $ctx->log('debug', "Running base sync");
                 $this->syncBase($user);
                 $activityId = $profile->{$this->settings->activityIdField} ?? null;

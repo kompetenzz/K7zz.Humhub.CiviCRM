@@ -38,6 +38,11 @@ class Events
 
     /**
      * @param \yii\db\AfterSaveEvent $event
+     *
+     * Handles user-model fields (email, username) separately from profile fields.
+     * syncBase is intentionally skipped here — onProfileAfterUpdate runs it already
+     * when both models are saved together (e.g. combined profile form), preventing
+     * a double syncBase API call.
      */
     public static function onUserAfterUpdate($event)
     {
@@ -45,13 +50,19 @@ class Events
         if ($user instanceof User === false) {
             return;
         }
-        self::init(); // Ensure the service is initialized
-/*        self::$civiCRMService->onChange(
-            "user",
+        self::init();
+        if (!self::$civiCRMService->settings->enableOnChangeSync) {
+            return;
+        }
+        if (empty($event->changedAttributes)) {
+            return;
+        }
+        self::$civiCRMService->onChange(
+            CiviCRMService::HUMHUB_DATA_SRC_USER,
             $user->profile,
-            $event->changedAttributes
+            $event->changedAttributes,
+            skipBaseSync: true
         );
-        */
     }
 
     /**
