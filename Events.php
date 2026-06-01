@@ -60,8 +60,7 @@ class Events
         self::$civiCRMService->onChange(
             CiviCRMService::HUMHUB_DATA_SRC_USER,
             $user->profile,
-            $event->changedAttributes,
-            skipBaseSync: true
+            $event->changedAttributes
         );
     }
 

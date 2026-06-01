@@ -1032,11 +1032,7 @@ class CiviCRMService
         }
     }
 
-    /**
-     * @param bool $skipBaseSync  Pass true from onUserAfterUpdate so syncBase is not
-     *                            called twice when profile and user are saved together.
-     */
-    public function onChange(string $eventSrc, Profile $profile, array $valuesBeforeChange, bool $skipBaseSync = false): void
+    public function onChange(string $eventSrc, Profile $profile, array $valuesBeforeChange): void
     {
         if (!$this->settings->enableOnChangeSync) {
             return;
@@ -1091,11 +1087,12 @@ class CiviCRMService
             $activityId = $profile->{$this->settings->activityIdField} ?? null;
             $ctx->setActivityId($activityId);
 
-            // Run base sync if enabled, but skip when called from onUserAfterUpdate
-            // to avoid a double syncBase when both user and profile are saved together.
-            if ($this->settings->enableBaseSync && !$skipBaseSync) {
+            // Run base sync at most once per user per request, even if both
+            // onUserAfterUpdate and onProfileAfterUpdate fire for the same save.
+            if ($this->settings->enableBaseSync && !$this->hasSyncBaseRunThisRequest($user)) {
                 $ctx->log('debug', "Running base sync");
                 $this->syncBase($user);
+                $this->markSyncBaseDone($user);
                 $activityId = $profile->{$this->settings->activityIdField} ?? null;
                 $ctx->setActivityId($activityId);
             }
@@ -1379,6 +1376,18 @@ class CiviCRMService
             // Clear sync context
             $this->setSyncContext(null);
         }
+    }
+
+    private static array $syncBaseDoneInRequest = [];
+
+    private function hasSyncBaseRunThisRequest(User $user): bool
+    {
+        return isset(self::$syncBaseDoneInRequest[$user->id]);
+    }
+
+    private function markSyncBaseDone(User $user): void
+    {
+        self::$syncBaseDoneInRequest[$user->id] = true;
     }
 
     private function lock(User $user, int $seconds = 30): bool
