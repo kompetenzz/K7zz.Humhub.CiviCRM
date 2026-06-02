@@ -631,7 +631,9 @@ class CiviCRMService
         }
 
         if ($this->settings->autoFullSync || $manual) {
-            $handled = $this->syncUsers($from, $handled);
+            // When base sync is disabled, $handled is empty — fall back to all connected users.
+            $syncableUsers = $this->settings->enableBaseSync ? $handled : $users;
+            $handled = $this->syncUsers($from, $syncableUsers);
         }
         return count($handled) > 0;
     }
@@ -787,8 +789,8 @@ class CiviCRMService
 
             // Renew checksum
             $currentChecksum = $profile->{$this->settings->checksumField} ?? null;
-            if (!$this->validateChecksum($contactId, $currentChecksum ?? "none")) {
-                $ctx->log('debug', "Checksum invalid or expired - generating new one");
+            if (!$currentChecksum || !$this->validateChecksum($contactId, $currentChecksum)) {
+                $ctx->log('debug', "Checksum missing or invalid - generating new one");
                 $newChecksum = $this->genChecksum($contactId);
 
                 if ($newChecksum && $currentChecksum !== $newChecksum) {
@@ -807,7 +809,7 @@ class CiviCRMService
             if ($activityId) {
                 // Update activity ID if changed
                 $currentActivityId = $profile->{$this->settings->activityIdField} ?? null;
-                if ($currentActivityId !== $activityId) {
+                if ($currentActivityId != $activityId) {
                     $profile->{$this->settings->activityIdField} = $activityId;
                     $changes[] = 'activity_id';
                     $ctx->log('info', "Activity ID updated", [
@@ -911,7 +913,8 @@ class CiviCRMService
             SyncLog::warning("Restricting all actions to contact IDs: " . json_encode($this->getEnabledContactIds()));
             $q->andWhere(['IN', "profile.{$this->settings->contactIdField}", $this->getEnabledContactIds()]);
         } else {
-            $q->andWhere(['AND',
+            $q->andWhere([
+                'AND',
                 ['IS NOT', "profile.{$this->settings->contactIdField}", null],
                 ['<>', "profile.{$this->settings->contactIdField}", 0],
             ]);
@@ -1057,6 +1060,9 @@ class CiviCRMService
             $this->setSyncContext(null);
             return;
         }
+        // Set lock to prevent concurrent onChange executions
+        $this->lock($user);
+
 
         $contactId = $profile->{$this->settings->contactIdField} ?? null;
         if (!$contactId) {
@@ -1068,9 +1074,6 @@ class CiviCRMService
         }
 
         $ctx->setContactId($contactId);
-
-        // Set lock to prevent concurrent onChange executions
-        $this->lock($user);
 
         try {
             // Fetch CiviCRM contact

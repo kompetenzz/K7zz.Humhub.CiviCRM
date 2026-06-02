@@ -78,7 +78,7 @@ class Events
             return;
         }
         self::$civiCRMService->onChange(
-            "profile",
+            CiviCRMService::HUMHUB_DATA_SRC_PROFILE,
             $profile,
             $event->changedAttributes // This are the old values!!
         );
