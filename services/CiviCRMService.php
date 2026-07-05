@@ -591,7 +591,7 @@ class CiviCRMService
                 'created_date' => 'DESC',
             ]
         ];
-        SyncLog::error("Fetching activities for contact Id {$contactId} with params: " . json_encode($params));
+
         $activities = $this->callCiviCRM('activity', 'get', $params);
         if (count($activities) == 0) {
             SyncLog::warning("No activity found for contact Id {$contactId}.");
