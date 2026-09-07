@@ -320,6 +320,7 @@ class CiviCRMService
             'action' => $action,
             'status_code' => $response->statusCode,
             'response_preview' => substr($response->content, 0, 200),
+            'api_params' => json_encode($params),
         ]);
 
         return $isWrite ? false : []; // Return false on error
@@ -399,9 +400,7 @@ class CiviCRMService
             if (!isset($joined[$subEntity['entity']][$key]['fields'])) {
                 $joined[$subEntity['entity']][$key]['fields'] = [];
             }
-            $joined[$subEntity['entity']][$key]['fields'][] = [
-                $subEntity['field'] => $subEntity['value']
-            ];
+            $joined[$subEntity['entity']][$key]['fields'][$subEntity['field']] = $subEntity['value'];
         }
         return $joined;
     }
@@ -1020,9 +1019,7 @@ class CiviCRMService
             $this->syncBase($user);
 
             // Sync user field mappings
-            if ($this->settings->autoFullSync) {
-                $this->syncUser($user, self::SRC_CIVICRM);
-            }
+            $this->syncUser($user, self::SRC_CIVICRM);
 
             $ctx->logSuccess();
         } catch (\Throwable $e) {
